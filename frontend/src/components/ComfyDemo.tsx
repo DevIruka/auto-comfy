@@ -1,334 +1,609 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { comfyClient } from "../api/comfy-client";
-import {
-  createWanWorkflow,
-  DEFAULT_WAN_POSITIVE_PROMPT,
-  DEFAULT_WAN_NEGATIVE_PROMPT,
-} from "../workflows/wan-workflow";
-import { useComfyProgress } from "../hooks/useComfyProgress";
 import "./ComfyDemo.css";
+
+interface LoraSlot {
+  enabled: boolean;
+  loraName: string;
+  strengthModel: number;
+  strengthClip: number;
+}
+
+interface ComfyInstance {
+  id: string;
+  url: string;
+  name: string;
+}
 
 interface GeneratedImage {
   url: string;
-  promptId: string;
+  filename: string;
 }
 
-interface QueueStatus {
-  queue_running: unknown[];
-  queue_pending: unknown[];
+interface PositiveBlocks {
+  fixedPrefix: string;
+  styleTrigger: string;
+  character: string;
+  outfit: string;
+  composition: string;
+  backgroundPositive: string;
+  fixedSuffix: string;
+}
+
+interface NegativeBlocks {
+  fixedNegative: string;
+  minorFixes: string;
+  includeNsfw: boolean;
+  nsfwNegative: string;
+  backgroundNegative: string;
+}
+
+const DEFAULT_LORAS: LoraSlot[] = [
+  { enabled: true, loraName: "", strengthModel: 1, strengthClip: 1 },
+  { enabled: true, loraName: "", strengthModel: 1, strengthClip: 1 },
+  { enabled: false, loraName: "", strengthModel: 1, strengthClip: 1 },
+  { enabled: false, loraName: "", strengthModel: 1, strengthClip: 1 },
+];
+
+const DEFAULT_POSITIVE_BLOCKS: PositiveBlocks = {
+  fixedPrefix:
+    "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  styleTrigger: "",
+  character: "",
+  outfit: "",
+  composition: "",
+  backgroundPositive: "",
+  fixedSuffix:
+    "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+};
+
+const DEFAULT_NEGATIVE_BLOCKS: NegativeBlocks = {
+  fixedNegative:
+    "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  minorFixes: "",
+  includeNsfw: false,
+  nsfwNegative: "",
+  backgroundNegative: "",
+};
+
+function combineBlocks(parts: string[]): string {
+  return parts.filter((p) => p.trim()).join("\n\n");
+}
+
+function CollapsibleBlock({
+  label,
+  children,
+  defaultOpen = false,
+}: {
+  label: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className={`prompt-block collapsible ${open ? "open" : ""}`}>
+      <div className="prompt-block-header" onClick={() => setOpen(!open)}>
+        <span className="collapse-arrow">{open ? "▼" : "▶"}</span>
+        <span className="prompt-block-label">{label}</span>
+        <span className="prompt-block-tag fixed">고정</span>
+      </div>
+      {open && <div className="prompt-block-body">{children}</div>}
+    </div>
+  );
 }
 
 export default function ComfyDemo() {
-  const [prompt, setPrompt] = useState(DEFAULT_WAN_POSITIVE_PROMPT);
-  const [negativePrompt, setNegativePrompt] = useState(
-    DEFAULT_WAN_NEGATIVE_PROMPT,
-  );
-  const [loading, setLoading] = useState(false);
-  const [images, setImages] = useState<GeneratedImage[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(null);
-  const [image260, setImage260] = useState<File | null>(null);
-  const [image881, setImage881] = useState<File | null>(null);
-  const [uploadedImage260, setUploadedImage260] = useState<string>("");
-  const [uploadedImage881, setUploadedImage881] = useState<string>("");
-  const [seed, setSeed] = useState<number>(625130800946143);
+  const [instances, setInstances] = useState<ComfyInstance[]>([]);
+  const [selectedInstance, setSelectedInstance] = useState("");
+  const [loraList, setLoraList] = useState<string[]>([]);
+  const [loraSlots, setLoraSlots] = useState<LoraSlot[]>(DEFAULT_LORAS);
 
-  const { progress, currentNode, isConnected, resetProgress } =
-    useComfyProgress();
+  const [posBlocks, setPosBlocks] = useState<PositiveBlocks>(
+    DEFAULT_POSITIVE_BLOCKS,
+  );
+  const [negBlocks, setNegBlocks] = useState<NegativeBlocks>(
+    DEFAULT_NEGATIVE_BLOCKS,
+  );
+  const [showPosPreview, setShowPosPreview] = useState(false);
+  const [showNegPreview, setShowNegPreview] = useState(false);
+
+  const [seed, setSeed] = useState(327435532408452);
+  const [batchSize, setBatchSize] = useState(4);
+  const [outputPath, setOutputPath] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [loadingLoras, setLoadingLoras] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [images, setImages] = useState<GeneratedImage[]>([]);
+  const [savedPaths, setSavedPaths] = useState<string[]>([]);
+
+  const positivePrompt = useMemo(
+    () =>
+      combineBlocks([
+        posBlocks.fixedPrefix,
+        posBlocks.styleTrigger,
+        posBlocks.character,
+        posBlocks.outfit,
+        posBlocks.composition,
+        posBlocks.backgroundPositive,
+        posBlocks.fixedSuffix,
+      ]),
+    [posBlocks],
+  );
+
+  const negativePrompt = useMemo(
+    () =>
+      combineBlocks([
+        negBlocks.fixedNegative,
+        negBlocks.minorFixes,
+        ...(negBlocks.includeNsfw ? [negBlocks.nsfwNegative] : []),
+        negBlocks.backgroundNegative,
+      ]),
+    [negBlocks],
+  );
+
+  useEffect(() => {
+    comfyClient
+      .getComfyInstances()
+      .then((list) => {
+        setInstances(list);
+        if (list.length > 0) setSelectedInstance(list[0].id);
+      })
+      .catch((err) => console.error("Failed to load instances:", err));
+  }, []);
+
+  const fetchLoras = useCallback(async () => {
+    if (!selectedInstance) return;
+    setLoadingLoras(true);
+    try {
+      const loras = await comfyClient.getLoraList(selectedInstance);
+      setLoraList(loras);
+    } catch (err) {
+      console.error("Failed to fetch LoRA list:", err);
+      setError("LoRA 목록을 불러오지 못했습니다.");
+    } finally {
+      setLoadingLoras(false);
+    }
+  }, [selectedInstance]);
+
+  useEffect(() => {
+    if (selectedInstance) fetchLoras();
+  }, [selectedInstance, fetchLoras]);
+
+  const updateLoraSlot = (index: number, updates: Partial<LoraSlot>) => {
+    setLoraSlots((prev) =>
+      prev.map((slot, i) => (i === index ? { ...slot, ...updates } : slot)),
+    );
+  };
+
+  const updatePos = (key: keyof PositiveBlocks, value: string) => {
+    setPosBlocks((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateNeg = (key: keyof NegativeBlocks, value: string | boolean) => {
+    setNegBlocks((prev) => ({ ...prev, [key]: value }));
+  };
 
   const handleGenerate = async () => {
     setLoading(true);
     setError(null);
-    resetProgress();
 
     try {
-      // 이미지 업로드
-      let uploadedFilename260 = uploadedImage260;
-      let uploadedFilename881 = uploadedImage881;
-
-      if (image260) {
-        console.log("📤 노드 260 이미지 업로드 중...");
-        const result = await comfyClient.uploadImage(image260);
-        uploadedFilename260 = result.name;
-        setUploadedImage260(result.name);
-        console.log("✅ 노드 260 이미지 업로드 완료:", result.name);
-      }
-
-      if (image881) {
-        console.log("📤 노드 881 이미지 업로드 중...");
-        const result = await comfyClient.uploadImage(image881);
-        uploadedFilename881 = result.name;
-        setUploadedImage881(result.name);
-        console.log("✅ 노드 881 이미지 업로드 완료:", result.name);
-      }
-
-      const workflow = createWanWorkflow(
-        prompt,
+      const result = await comfyClient.generateImage({
+        instanceId: selectedInstance || undefined,
+        loras: loraSlots,
+        positivePrompt,
         negativePrompt,
-        uploadedFilename260,
-        uploadedFilename881,
         seed,
-      );
-      console.log("🚀 WAN 2.2 워크플로우 실행 중...");
+        batchSize,
+        outputPath: outputPath || undefined,
+      });
 
-      const result = await comfyClient.executeWorkflow(workflow);
-      console.log("✅ 실행 완료:", result);
-
-      // 이미지 추출
-      const imageUrls = comfyClient.extractImageUrls(result);
-
-      const newImages = imageUrls.map((url) => ({
-        url,
-        promptId: result.prompt_id,
+      const newImages = result.images.map((img) => ({
+        url: comfyClient.getImageGenUrl(
+          img.filename,
+          img.subfolder,
+          img.type,
+          selectedInstance || undefined,
+        ),
+        filename: img.filename,
       }));
 
       setImages((prev) => [...newImages, ...prev]);
-
-      // 동영상 자동 다운로드 (노드 1099: h264-mp4)
-      const output1099 = result.outputs["1099"] as {
-        gifs?: Array<{ filename: string; subfolder: string; type: string }>;
-      };
-      if (output1099?.gifs) {
-        const videoFiles = output1099.gifs;
-        for (const video of videoFiles) {
-          await downloadVideo(video.filename, video.subfolder, video.type);
-        }
-      }
-
-      // 무손실 동영상도 다운로드 (노드 828: ffv1-mkv)
-      const output828 = result.outputs["828"] as {
-        gifs?: Array<{ filename: string; subfolder: string; type: string }>;
-      };
-      if (output828?.gifs) {
-        const videoFiles = output828.gifs;
-        for (const video of videoFiles) {
-          await downloadVideo(video.filename, video.subfolder, video.type);
-        }
+      if (result.savedPaths && result.savedPaths.length > 0) {
+        setSavedPaths(result.savedPaths);
       }
     } catch (err) {
-      console.error("❌ 실행 실패:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "워크플로우 실행에 실패했습니다.";
-      setError(errorMessage);
+      const msg =
+        err instanceof Error ? err.message : "이미지 생성에 실패했습니다.";
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCheckQueue = async () => {
-    try {
-      const status = await comfyClient.getQueueStatus();
-      setQueueStatus(status);
-      console.log("Queue Status:", status);
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : "큐 상태를 가져오는데 실패했습니다.";
-      setError(errorMessage);
-    }
-  };
-
-  const handleCloseQueue = () => {
-    setQueueStatus(null);
-  };
-
-  const handleHealthCheck = async () => {
-    try {
-      const health = await comfyClient.healthCheck();
-      alert(`✅ 백엔드 연결 정상\n${JSON.stringify(health, null, 2)}`);
-    } catch {
-      alert("❌ 백엔드 연결 실패\n서버가 실행 중인지 확인하세요.");
-    }
-  };
-
-  const downloadVideo = async (
-    filename: string,
-    subfolder: string = "",
-    type: string = "output",
-  ) => {
-    try {
-      console.log("📥 동영상 다운로드 중:", filename);
-      const videoUrl = comfyClient.getImageUrl(filename, subfolder, type);
-
-      // Fetch video and download
-      const response = await fetch(videoUrl);
-      const blob = await response.blob();
-
-      // Create download link
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-
-      console.log("✅ 동영상 다운로드 완료:", filename);
-    } catch (error) {
-      console.error("❌ 동영상 다운로드 실패:", error);
-    }
+  const handleRandomSeed = () => {
+    setSeed(Math.floor(Math.random() * 1e15));
   };
 
   return (
     <div className="comfy-demo">
       <header className="demo-header">
-        <h1>🎨 Auto-Comfy Demo</h1>
-        <p>WAN 2.2 애니메이션 생성 워크플로우</p>
+        <h1>🖼️ Image Generation</h1>
+        <p>LoRA + 프롬프트 블록 시스템</p>
       </header>
 
       <div className="demo-container">
         <div className="controls">
+          {/* ComfyUI Instance */}
           <div className="form-group">
-            <label htmlFor="prompt">Positive Prompt</label>
-            <textarea
-              id="prompt"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              rows={3}
-              placeholder="원하는 이미지 설명을 입력하세요..."
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="negative-prompt">Negative Prompt</label>
-            <textarea
-              id="negative-prompt"
-              value={negativePrompt}
-              onChange={(e) => setNegativePrompt(e.target.value)}
-              rows={2}
-              placeholder="제외할 요소를 입력하세요..."
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="seed">Seed (고정값)</label>
-            <input
-              type="number"
-              id="seed"
-              value={seed}
-              onChange={(e) => setSeed(Number(e.target.value))}
-              placeholder="시드 값을 입력하세요..."
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="image-260">Image 260 (선택사항)</label>
-            <input
-              type="file"
-              id="image-260"
-              accept="image/*"
-              onChange={(e) => setImage260(e.target.files?.[0] || null)}
-            />
-            {uploadedImage260 && (
-              <small
-                style={{
-                  color: "#667eea",
-                  marginTop: "0.5rem",
-                  display: "block",
-                }}
-              >
-                ✓ 업로드됨: {uploadedImage260}
-              </small>
-            )}
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="image-881">Image 881 (선택사항)</label>
-            <input
-              type="file"
-              id="image-881"
-              accept="image/*"
-              onChange={(e) => setImage881(e.target.files?.[0] || null)}
-            />
-            {uploadedImage881 && (
-              <small
-                style={{
-                  color: "#667eea",
-                  marginTop: "0.5rem",
-                  display: "block",
-                }}
-              >
-                ✓ 업로드됨: {uploadedImage881}
-              </small>
-            )}
-          </div>
-
-          <div className="button-group">
-            <button
-              onClick={handleGenerate}
-              disabled={loading || !prompt}
-              className="btn-primary"
+            <label>ComfyUI Instance</label>
+            <select
+              value={selectedInstance}
+              onChange={(e) => setSelectedInstance(e.target.value)}
+              className="form-select"
             >
-              {loading ? "⏳ 생성 중..." : "🎬 애니메이션 생성"}
-            </button>
-
-            <button onClick={handleCheckQueue} className="btn-secondary">
-              📊 큐 상태 확인
-            </button>
-
-            <button onClick={handleHealthCheck} className="btn-secondary">
-              💚 연결 테스트
-            </button>
+              {instances.map((inst) => (
+                <option key={inst.id} value={inst.id}>
+                  {inst.name}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {loading && (
-            <div className="progress-container">
-              <div className="progress-info">
-                <span>진행률: {Math.round(progress)}%</span>
-                {!isConnected && (
-                  <span className="ws-status">🔴 연결 중...</span>
+          {/* LoRA Configuration */}
+          <div className="lora-section">
+            <div className="lora-section-header">
+              <h3>LoRA Configuration</h3>
+              <button
+                className="btn-small"
+                onClick={fetchLoras}
+                disabled={loadingLoras}
+              >
+                {loadingLoras ? "⏳" : "🔄"} Refresh
+              </button>
+            </div>
+
+            {loraSlots.map((slot, i) => (
+              <div
+                key={i}
+                className={`lora-slot ${!slot.enabled ? "disabled" : ""}`}
+              >
+                <div className="lora-slot-header">
+                  <label className="lora-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={slot.enabled}
+                      onChange={(e) =>
+                        updateLoraSlot(i, { enabled: e.target.checked })
+                      }
+                    />
+                    <span>LoRA {i + 1}</span>
+                  </label>
+                </div>
+
+                {slot.enabled && (
+                  <div className="lora-slot-body">
+                    <select
+                      value={slot.loraName}
+                      onChange={(e) =>
+                        updateLoraSlot(i, { loraName: e.target.value })
+                      }
+                      className="form-select lora-select"
+                    >
+                      <option value="">-- Select LoRA --</option>
+                      {loraList.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <div className="lora-strengths">
+                      <div className="strength-input">
+                        <label>Model</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={slot.strengthModel}
+                          onChange={(e) =>
+                            updateLoraSlot(i, {
+                              strengthModel: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="strength-input">
+                        <label>CLIP</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={slot.strengthClip}
+                          onChange={(e) =>
+                            updateLoraSlot(i, {
+                              strengthClip: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
                 )}
-                {isConnected && <span className="ws-status">🟢 연결됨</span>}
               </div>
-              <div className="progress-bar">
-                <div
-                  className="progress-fill"
-                  style={{ width: `${progress}%` }}
+            ))}
+          </div>
+
+          <div className="section-divider" />
+
+          {/* Positive Prompt Blocks */}
+          <div className="prompt-blocks-section">
+            <h3 className="prompt-section-title">Positive Prompt</h3>
+
+            <CollapsibleBlock label="Fixed Prefix (아티스트)">
+              <textarea
+                value={posBlocks.fixedPrefix}
+                onChange={(e) => updatePos("fixedPrefix", e.target.value)}
+                rows={3}
+              />
+            </CollapsibleBlock>
+
+            <div className="prompt-block">
+              <div className="prompt-block-header">
+                <span className="prompt-block-label">Style LoRA Trigger</span>
+              </div>
+              <div className="prompt-block-body">
+                <textarea
+                  value={posBlocks.styleTrigger}
+                  onChange={(e) => updatePos("styleTrigger", e.target.value)}
+                  rows={1}
+                  placeholder="예: ahemaru, ahemaru style,"
                 />
               </div>
-              {currentNode && (
-                <div className="current-node">
-                  현재 실행 중: 노드 {currentNode}
+            </div>
+
+            <div className="prompt-block">
+              <div className="prompt-block-header">
+                <span className="prompt-block-label">Character</span>
+              </div>
+              <div className="prompt-block-body">
+                <textarea
+                  value={posBlocks.character}
+                  onChange={(e) => updatePos("character", e.target.value)}
+                  rows={2}
+                  placeholder="캐릭터 외형 (머리색, 눈, 체형 등)"
+                />
+              </div>
+            </div>
+
+            <div className="prompt-block">
+              <div className="prompt-block-header">
+                <span className="prompt-block-label">Outfit</span>
+              </div>
+              <div className="prompt-block-body">
+                <textarea
+                  value={posBlocks.outfit}
+                  onChange={(e) => updatePos("outfit", e.target.value)}
+                  rows={2}
+                  placeholder="의상 묘사 (옷, 액세서리 등)"
+                />
+              </div>
+            </div>
+
+            <div className="prompt-block">
+              <div className="prompt-block-header">
+                <span className="prompt-block-label">Composition</span>
+              </div>
+              <div className="prompt-block-body">
+                <textarea
+                  value={posBlocks.composition}
+                  onChange={(e) => updatePos("composition", e.target.value)}
+                  rows={1}
+                  placeholder="구도, 포즈, 시선 (예: cowboy shot, looking at viewer)"
+                />
+              </div>
+            </div>
+
+            <div className="prompt-block">
+              <div className="prompt-block-header">
+                <span className="prompt-block-label">Background</span>
+              </div>
+              <div className="prompt-block-body">
+                <textarea
+                  value={posBlocks.backgroundPositive}
+                  onChange={(e) =>
+                    updatePos("backgroundPositive", e.target.value)
+                  }
+                  rows={2}
+                  placeholder="배경/장소 묘사"
+                />
+              </div>
+            </div>
+
+            <CollapsibleBlock label="Fixed Suffix (품질)">
+              <textarea
+                value={posBlocks.fixedSuffix}
+                onChange={(e) => updatePos("fixedSuffix", e.target.value)}
+                rows={2}
+              />
+            </CollapsibleBlock>
+
+            <button
+              className="btn-preview"
+              onClick={() => setShowPosPreview(!showPosPreview)}
+            >
+              {showPosPreview ? "▼ 미리보기 닫기" : "▶ 최종 프롬프트 미리보기"}
+            </button>
+            {showPosPreview && (
+              <div className="prompt-preview">{positivePrompt}</div>
+            )}
+          </div>
+
+          <div className="section-divider" />
+
+          {/* Negative Prompt Blocks */}
+          <div className="prompt-blocks-section">
+            <h3 className="prompt-section-title">Negative Prompt</h3>
+
+            <CollapsibleBlock label="Fixed Negative (표준)">
+              <textarea
+                value={negBlocks.fixedNegative}
+                onChange={(e) => updateNeg("fixedNegative", e.target.value)}
+                rows={3}
+              />
+            </CollapsibleBlock>
+
+            <div className="prompt-block">
+              <div className="prompt-block-header">
+                <span className="prompt-block-label">Minor Fixes</span>
+              </div>
+              <div className="prompt-block-body">
+                <textarea
+                  value={negBlocks.minorFixes}
+                  onChange={(e) => updateNeg("minorFixes", e.target.value)}
+                  rows={1}
+                  placeholder="사소한 보정 (선택사항)"
+                />
+              </div>
+            </div>
+
+            <div className="prompt-block">
+              <div className="prompt-block-header">
+                <label className="lora-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={negBlocks.includeNsfw}
+                    onChange={(e) => updateNeg("includeNsfw", e.target.checked)}
+                  />
+                  <span className="prompt-block-label">NSFW Negative</span>
+                </label>
+              </div>
+              {negBlocks.includeNsfw && (
+                <div className="prompt-block-body">
+                  <textarea
+                    value={negBlocks.nsfwNegative}
+                    onChange={(e) => updateNeg("nsfwNegative", e.target.value)}
+                    rows={1}
+                    placeholder="NSFW 전용 네거티브"
+                  />
                 </div>
               )}
             </div>
-          )}
+
+            <div className="prompt-block">
+              <div className="prompt-block-header">
+                <span className="prompt-block-label">Background Negative</span>
+              </div>
+              <div className="prompt-block-body">
+                <textarea
+                  value={negBlocks.backgroundNegative}
+                  onChange={(e) =>
+                    updateNeg("backgroundNegative", e.target.value)
+                  }
+                  rows={2}
+                  placeholder="배경 제외 키워드 (예: outdoor, bedroom, kitchen)"
+                />
+              </div>
+            </div>
+
+            <button
+              className="btn-preview"
+              onClick={() => setShowNegPreview(!showNegPreview)}
+            >
+              {showNegPreview ? "▼ 미리보기 닫기" : "▶ 최종 프롬프트 미리보기"}
+            </button>
+            {showNegPreview && (
+              <div className="prompt-preview">{negativePrompt}</div>
+            )}
+          </div>
+
+          <div className="section-divider" />
+
+          {/* Output Path */}
+          <div className="form-group">
+            <label htmlFor="output-path">저장 경로 (비우면 저장 안 함)</label>
+            <input
+              id="output-path"
+              type="text"
+              value={outputPath}
+              onChange={(e) => setOutputPath(e.target.value)}
+              placeholder="예: C:\output\images"
+              className="form-text-input"
+            />
+          </div>
+
+          {/* Seed & Batch */}
+          <div className="form-row">
+            <div className="form-group flex-1">
+              <label htmlFor="seed-input">Seed</label>
+              <div className="seed-row">
+                <input
+                  id="seed-input"
+                  type="number"
+                  value={seed}
+                  onChange={(e) => setSeed(Number(e.target.value))}
+                />
+                <button className="btn-small" onClick={handleRandomSeed}>
+                  🎲
+                </button>
+              </div>
+            </div>
+            <div className="form-group" style={{ width: "100px" }}>
+              <label htmlFor="batch-input">Batch</label>
+              <input
+                id="batch-input"
+                type="number"
+                min={1}
+                max={16}
+                value={batchSize}
+                onChange={(e) => setBatchSize(Number(e.target.value))}
+              />
+            </div>
+          </div>
+
+          {/* Generate Button */}
+          <div className="button-group">
+            <button
+              onClick={handleGenerate}
+              disabled={loading || !positivePrompt}
+              className="btn-primary"
+            >
+              {loading ? "⏳ 생성 중..." : "🖼️ 이미지 생성"}
+            </button>
+          </div>
 
           {error && <div className="error-message">❌ {error}</div>}
 
-          {queueStatus && (
-            <div className="queue-status">
-              <div className="queue-status-header">
-                <h3>Queue Status</h3>
-                <button
-                  className="close-button"
-                  onClick={handleCloseQueue}
-                  title="닫기"
-                >
-                  ✕
-                </button>
-              </div>
-              <pre>{JSON.stringify(queueStatus, null, 2)}</pre>
+          {savedPaths.length > 0 && (
+            <div className="save-success">
+              💾 {savedPaths.length}개 이미지 저장 완료
+              <small>
+                {savedPaths[0].substring(
+                  0,
+                  savedPaths[0].lastIndexOf("\\") + 1,
+                ) ||
+                  savedPaths[0].substring(
+                    0,
+                    savedPaths[0].lastIndexOf("/") + 1,
+                  )}
+              </small>
             </div>
           )}
         </div>
 
+        {/* Results */}
         <div className="results">
-          <h2>생성된 애니메이션 ({images.length})</h2>
+          <h2>생성된 이미지 ({images.length})</h2>
 
           {loading && (
             <div className="loading">
-              <div className="spinner"></div>
-              <p>애니메이션을 생성하고 있습니다... (시간이 걸릴 수 있습니다)</p>
+              <div className="spinner" />
+              <p>이미지를 생성하고 있습니다... (시간이 걸릴 수 있습니다)</p>
             </div>
           )}
 
           {images.length === 0 && !loading && (
             <div className="empty-state">
-              <p>아직 생성된 애니메이션이 없습니다.</p>
-              <p>위에서 프롬프트를 입력하고 애니메이션을 생성해보세요!</p>
+              <p>아직 생성된 이미지가 없습니다.</p>
+              <p>LoRA와 프롬프트를 설정하고 생성해보세요!</p>
             </div>
           )}
 
@@ -337,7 +612,7 @@ export default function ComfyDemo() {
               <div key={index} className="image-card">
                 <img src={image.url} alt={`Generated ${index}`} />
                 <div className="image-info">
-                  <small>Prompt ID: {image.promptId.slice(0, 8)}...</small>
+                  <small>{image.filename}</small>
                 </div>
               </div>
             ))}

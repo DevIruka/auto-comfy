@@ -24,6 +24,7 @@ export default function BatchProcessor() {
   ]);
   const [prefixPrompt, setPrefixPrompt] = useState("");
   const [includeRandomSeeds, setIncludeRandomSeeds] = useState(false);
+  const [autoStopPod, setAutoStopPod] = useState(false); // NEW: Auto-stop RunPod
   const [currentJob, setCurrentJob] = useState<BatchJob | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,6 +143,9 @@ export default function BatchProcessor() {
       // Process each folder pair sequentially
       for (let i = 0; i < folderPairs.length; i++) {
         const pair = folderPairs[i];
+        const isLastPair = i === folderPairs.length - 1;
+        const shouldStopPod = autoStopPod && isLastPair;
+
         setCurrentPairIndex(i);
         addLog(
           `\n🎬 [${i + 1}/${folderPairs.length}] 처리 시작: ${pair.inputPath} → ${pair.outputPath}`,
@@ -152,6 +156,7 @@ export default function BatchProcessor() {
           pair.outputPath,
           prefixPrompt,
           includeRandomSeeds,
+          shouldStopPod,
         );
         setCurrentJob(result.job);
         addLog(`✅ 배치 작업 생성: ${result.jobId}`);
@@ -343,6 +348,26 @@ export default function BatchProcessor() {
                 {includeRandomSeeds
                   ? "✅ 고정 시드 3개 + 랜덤 시드 2개 = 총 5개 영상 생성"
                   : "기본: 고정 시드 3개만 생성"}
+              </div>
+            </label>
+          </div>
+
+          <div className="form-group">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={autoStopPod}
+                onChange={(e) => setAutoStopPod(e.target.checked)}
+                disabled={loading || currentJob?.status === "running"}
+                className="toggle-checkbox"
+              />
+              <span className="toggle-text">
+                🛑 작업 완료 후 RunPod 자동 종료 ({autoStopPod ? "ON" : "OFF"})
+              </span>
+              <div className="toggle-description">
+                {autoStopPod
+                  ? "✅ 모든 영상 생성 완료 시 자동으로 RunPod을 중지합니다"
+                  : "RunPod 자동 종료 안 함"}
               </div>
             </label>
           </div>

@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from "uuid";
 import { readFileSync } from "fs";
 import { comfyService } from "./comfy.service.js";
 import { createWanWorkflow } from "../utils/workflow-helpers.js";
+import { runPodService } from "./runpod.service.js";
+import { podUsageTracker } from "./pod-usage-tracker.service.js";
 
 // Fixed seeds for batch processing
 const FIXED_SEEDS = [625130800946143, 625130800946142, 625130800946144];
@@ -14,6 +16,7 @@ export interface BatchJob {
   outputFolderPath: string;
   prefixPrompt: string;
   includeRandomSeeds: boolean;
+  autoStopPod: boolean; // NEW: Auto-stop RunPod after completion
   status: "pending" | "running" | "paused" | "completed" | "failed" | "stopped";
   currentImageIndex: number;
   totalImages: number;
@@ -67,7 +70,7 @@ class BatchService {
       this.poseConfig = JSON.parse(configData);
       console.log(
         "✅ Loaded pose configuration:",
-        Object.keys(this.poseConfig)
+        Object.keys(this.poseConfig),
       );
     } catch (error) {
       console.error("❌ Failed to load pose-config.json:", error);
@@ -149,7 +152,8 @@ class BatchService {
     folderPath: string,
     outputFolderPath: string,
     prefixPrompt: string,
-    includeRandomSeeds: boolean = false
+    includeRandomSeeds: boolean = false,
+    autoStopPod: boolean = false,
   ): Promise<BatchJob> {
     const jobId = uuidv4();
 
@@ -168,6 +172,7 @@ class BatchService {
         "./output",
       prefixPrompt,
       includeRandomSeeds,
+      autoStopPod,
       status: "pending",
       currentImageIndex: 0,
       totalImages: imageTasks.length,
@@ -242,7 +247,7 @@ class BatchService {
           jobId,
           `Processing image ${i + 1}/${imageTasks.length}: ${
             imageTask.imageName
-          }`
+          }`,
         );
 
         // Process this image (generate 5 videos)
@@ -253,6 +258,31 @@ class BatchService {
       job.status = "completed";
       job.completedAt = new Date();
       this.addLog(jobId, "Batch processing completed successfully");
+
+      // Auto-stop RunPod if enabled (and no other jobs using it)
+      if (job.autoStopPod) {
+        const comfyUrl = process.env.COMFYUI_API_URL || "";
+        const podId = runPodService.extractPodIdFromUrl(comfyUrl);
+
+        if (podId) {
+          const canStop = podUsageTracker.release(podId);
+
+          if (canStop) {
+            this.addLog(jobId, "🛑 Auto-stopping RunPod...");
+            const stopped = await runPodService.stopPodByComfyUrl(comfyUrl);
+            if (stopped) {
+              this.addLog(jobId, "✅ RunPod stopped successfully");
+            } else {
+              this.addLog(jobId, "⚠️ Failed to stop RunPod (check logs)");
+            }
+          } else {
+            this.addLog(
+              jobId,
+              "⚠️ RunPod still in use by other jobs - NOT stopping",
+            );
+          }
+        }
+      }
 
       this.broadcast(jobId, {
         type: "batch_completed",
@@ -271,7 +301,7 @@ class BatchService {
    */
   private async processImageTask(
     jobId: string,
-    imageTask: ImageTask
+    imageTask: ImageTask,
   ): Promise<void> {
     const job = this.jobs.get(jobId);
     if (!job) return;
@@ -287,11 +317,11 @@ class BatchService {
       // Upload image to ComfyUI
       this.addLog(jobId, `Uploading image: ${imageTask.imageName}`);
       const imageBuffer = await import("fs/promises").then((fs) =>
-        fs.readFile(imageTask.imagePath)
+        fs.readFile(imageTask.imagePath),
       );
       const uploadResult = await comfyService.uploadImage(
         imageBuffer,
-        imageTask.imageName
+        imageTask.imageName,
       );
       const uploadedImageName = uploadResult.name;
 
@@ -308,7 +338,7 @@ class BatchService {
         .then((fs) => fs.readdir(poseOutputFolder))
         .catch(() => []);
       const existingVideoCount = existingFiles.filter((f) =>
-        f.endsWith(".mkv")
+        f.endsWith(".mkv"),
       ).length;
 
       // Generate videos: 3 fixed seeds + 2 random seeds (optional)
@@ -331,7 +361,7 @@ class BatchService {
           jobId,
           `Generating video ${
             i + 1
-          }/${videosToGenerate} with ${seedType} seed: ${seed}`
+          }/${videosToGenerate} with ${seedType} seed: ${seed}`,
         );
 
         // Create workflow
@@ -340,7 +370,7 @@ class BatchService {
           negativePrompt,
           uploadedImageName,
           uploadedImageName,
-          seed
+          seed,
         );
 
         // Execute workflow with retry logic
@@ -366,19 +396,19 @@ class BatchService {
             if (isRetryable && workflowRetries < maxWorkflowRetries) {
               const waitTime = Math.min(
                 2000 * Math.pow(2, workflowRetries - 1),
-                10000
+                10000,
               ); // 2s, 4s, 8s
               this.addLog(
                 jobId,
                 `⚠️ Workflow execution failed (${errorMessage}), retrying in ${
                   waitTime / 1000
-                }s (${workflowRetries}/${maxWorkflowRetries})...`
+                }s (${workflowRetries}/${maxWorkflowRetries})...`,
               );
               await this.sleep(waitTime);
             } else {
               this.addLog(
                 jobId,
-                `❌ Workflow execution failed after ${maxWorkflowRetries} attempts: ${errorMessage}`
+                `❌ Workflow execution failed after ${maxWorkflowRetries} attempts: ${errorMessage}`,
               );
               throw error; // Re-throw to be caught by outer try-catch
             }
@@ -393,7 +423,7 @@ class BatchService {
         const videoSequenceNumber = existingVideoCount + i + 1;
         const videoFilename = this.generateVideoFilename(
           outputFolderName,
-          videoSequenceNumber
+          videoSequenceNumber,
         );
 
         // Download MKV only (node 828)
@@ -405,7 +435,7 @@ class BatchService {
             mkvFile.filename,
             mkvOutputPath,
             mkvFile.subfolder,
-            mkvFile.type
+            mkvFile.type,
           );
           this.addLog(jobId, `Saved MKV: ${mkvFilename}`);
         }
@@ -421,7 +451,7 @@ class BatchService {
           totalVideos: 5,
           overallProgress: Math.round(
             (((job.currentImageIndex - 1) * 5 + (i + 1)) / job.totalVideos) *
-              100
+              100,
           ),
           status: job.status,
         });
@@ -429,12 +459,12 @@ class BatchService {
 
       this.addLog(
         jobId,
-        `Completed processing ${imageTask.imageName} (5 videos generated)`
+        `Completed processing ${imageTask.imageName} (5 videos generated)`,
       );
     } catch (error: any) {
       this.addLog(
         jobId,
-        `Error processing ${imageTask.imageName}: ${error.message}`
+        `Error processing ${imageTask.imageName}: ${error.message}`,
       );
       // Continue to next image instead of stopping entire batch
       console.error(`Error processing image ${imageTask.imageName}:`, error);
@@ -532,7 +562,7 @@ class BatchService {
    */
   private generateVideoFilename(
     poseName: string,
-    sequentialNumber: number
+    sequentialNumber: number,
   ): string {
     return `${poseName}_${sequentialNumber.toString().padStart(5, "0")}.mp4`;
   }

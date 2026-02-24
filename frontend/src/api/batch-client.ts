@@ -49,8 +49,9 @@ class BatchClient {
         folderPath,
       });
       return response.data.images;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || "Failed to scan folder");
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      throw new Error(err.response?.data?.error || "Failed to scan folder");
     }
   }
 
@@ -62,6 +63,7 @@ class BatchClient {
     outputFolderPath: string,
     prefixPrompt: string,
     includeRandomSeeds: boolean = false,
+    autoStopPod: boolean = false,
   ): Promise<{ jobId: string; job: BatchJob }> {
     try {
       const response = await this.httpClient.post("/batch/start", {
@@ -69,13 +71,15 @@ class BatchClient {
         outputFolderPath,
         prefixPrompt,
         includeRandomSeeds,
+        autoStopPod,
       });
       return {
         jobId: response.data.jobId,
         job: response.data.job,
       };
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || "Failed to start batch");
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      throw new Error(err.response?.data?.error || "Failed to start batch");
     }
   }
 
@@ -85,8 +89,9 @@ class BatchClient {
   async pauseBatch(jobId: string): Promise<void> {
     try {
       await this.httpClient.post(`/batch/${jobId}/pause`);
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || "Failed to pause batch");
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      throw new Error(err.response?.data?.error || "Failed to pause batch");
     }
   }
 
@@ -96,8 +101,9 @@ class BatchClient {
   async resumeBatch(jobId: string): Promise<void> {
     try {
       await this.httpClient.post(`/batch/${jobId}/resume`);
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || "Failed to resume batch");
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      throw new Error(err.response?.data?.error || "Failed to resume batch");
     }
   }
 
@@ -107,8 +113,9 @@ class BatchClient {
   async stopBatch(jobId: string): Promise<void> {
     try {
       await this.httpClient.post(`/batch/${jobId}/stop`);
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || "Failed to stop batch");
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      throw new Error(err.response?.data?.error || "Failed to stop batch");
     }
   }
 
@@ -119,9 +126,10 @@ class BatchClient {
     try {
       const response = await this.httpClient.get(`/batch/${jobId}/status`);
       return response.data.job;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
       throw new Error(
-        error.response?.data?.error || "Failed to get batch status",
+        err.response?.data?.error || "Failed to get batch status",
       );
     }
   }
@@ -133,8 +141,9 @@ class BatchClient {
     try {
       const response = await this.httpClient.get("/batch/jobs");
       return response.data.jobs;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || "Failed to get jobs");
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      throw new Error(err.response?.data?.error || "Failed to get jobs");
     }
   }
 }

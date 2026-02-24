@@ -2,9 +2,8 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
 }
 
 .batch-header {
@@ -626,4 +625,60 @@
   color: #666;
   padding-left: 1.75rem;
   margin-top: 0.25rem;
+}
+
+/* ComfyUI Select Dropdown */
+.comfy-select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.comfy-select:hover:not(:disabled) {
+  border-color: #667eea;
+}
+
+.comfy-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.comfy-select:disabled {
+  background: #f8f9fa;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Info Box */
+.info-box {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.info-box.warning {
+  background: #fff3cd;
+  border: 2px solid #ffc107;
+  color: #856404;
+}
+
+.info-box.info {
+  background: #d1ecf1;
+  border: 2px solid #17a2b8;
+  color: #0c5460;
+}
+
+/* Note text in summary */
+.total-summary .note {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  font-weight: 400;
+  margin: 0.75rem 0;
 }

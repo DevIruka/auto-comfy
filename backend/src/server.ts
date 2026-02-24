@@ -5,6 +5,10 @@ import { createServer } from "http";
 import { comfyRouter } from "./routes/comfy.routes.js";
 import { uploadRouter } from "./routes/upload.routes.js";
 import { batchRouter } from "./routes/batch.routes.js";
+import emotionBatchRouter from "./routes/emotion-batch.routes.js";
+import comfyInstancesRouter from "./routes/comfy-instances.routes.js";
+import imageGenRouter from "./routes/image-gen.routes.js";
+import imageBatchRouter from "./routes/image-batch.routes.js";
 import { setupWebSocket } from "./routes/websocket.routes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -19,7 +23,7 @@ app.use(
   cors({
     origin: FRONTEND_URL,
     credentials: true,
-  }),
+  })
 );
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -33,6 +37,10 @@ app.get("/health", (req, res) => {
 app.use("/api/comfy", comfyRouter);
 app.use("/api/upload", uploadRouter);
 app.use("/api/batch", batchRouter);
+app.use("/api/emotion-batch", emotionBatchRouter);
+app.use("/api/comfy-instances", comfyInstancesRouter);
+app.use("/api/image-gen", imageGenRouter);
+app.use("/api/image-batch", imageBatchRouter);
 
 // Error handling
 app.use(errorHandler);

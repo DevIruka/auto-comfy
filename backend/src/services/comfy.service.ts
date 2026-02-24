@@ -43,16 +43,17 @@ export interface HistoryResponse {
   };
 }
 
-class ComfyService {
+export class ComfyService {
   private apiUrl: string;
   private httpClient: AxiosInstance;
   private clientId: string;
 
-  constructor() {
-    this.apiUrl = process.env.COMFYUI_API_URL || "";
+  constructor(url?: string, clientId?: string) {
+    // Use provided URL or fall back to environment variable
+    this.apiUrl = url || process.env.COMFYUI_API_URL || "";
 
     if (!this.apiUrl) {
-      console.warn("⚠️  COMFYUI_API_URL is not set in environment variables");
+      console.warn("⚠️  ComfyUI API URL is not configured");
     }
 
     // Validate URL
@@ -60,21 +61,21 @@ class ComfyService {
       try {
         new URL(this.apiUrl);
       } catch (error) {
-        console.error(`❌ Invalid COMFYUI_API_URL: ${this.apiUrl}`);
+        console.error(`❌ Invalid ComfyUI API URL: ${this.apiUrl}`);
         this.apiUrl = "";
       }
     }
 
     this.httpClient = axios.create({
       baseURL: this.apiUrl,
-      timeout: 30000,
+      timeout: 120000, // 2 minutes for large uploads
       headers: {
         "Content-Type": "application/json",
       },
       validateStatus: (status) => status < 500, // Don't throw on 4xx errors
     });
 
-    this.clientId = uuidv4();
+    this.clientId = clientId || uuidv4();
   }
 
   /**
@@ -83,7 +84,7 @@ class ComfyService {
   async queuePrompt(workflow: ComfyWorkflow): Promise<QueuePromptResponse> {
     if (!this.apiUrl) {
       throw new Error(
-        "ComfyUI API URL is not configured. Please set COMFYUI_API_URL in .env file"
+        "ComfyUI API URL is not configured. Please set COMFYUI_API_URL in .env file",
       );
     }
 
@@ -119,15 +120,21 @@ class ComfyService {
         return response.data;
       } catch (error: any) {
         const statusCode = error.response?.status;
+        const isTimeout =
+          error.code === "ECONNABORTED" || error.code === "ETIMEDOUT";
         const isRetryable =
-          statusCode === 502 || statusCode === 503 || statusCode === 504;
+          statusCode === 502 ||
+          statusCode === 503 ||
+          statusCode === 504 ||
+          isTimeout;
 
         retryCount++;
 
         if (isRetryable && retryCount < maxRetries) {
           const waitTime = Math.min(1000 * Math.pow(2, retryCount - 1), 5000); // Exponential backoff: 1s, 2s, 4s
+          const reason = isTimeout ? "timeout" : `status ${statusCode}`;
           console.log(
-            `⚠️ History request failed with ${statusCode}, retrying in ${waitTime}ms (${retryCount}/${maxRetries})...`
+            `⚠️ History request failed (${reason}), retrying in ${waitTime}ms (${retryCount}/${maxRetries})...`,
           );
           await new Promise((resolve) => setTimeout(resolve, waitTime));
         } else {
@@ -145,7 +152,7 @@ class ComfyService {
   async getQueue() {
     if (!this.apiUrl) {
       throw new Error(
-        "ComfyUI API URL is not configured. Please set COMFYUI_API_URL in .env file"
+        "ComfyUI API URL is not configured. Please set COMFYUI_API_URL in .env file",
       );
     }
 
@@ -207,7 +214,7 @@ class ComfyService {
   async getImage(
     filename: string,
     subfolder: string = "",
-    type: string = "output"
+    type: string = "output",
   ): Promise<Buffer> {
     try {
       const params = new URLSearchParams({
@@ -227,53 +234,80 @@ class ComfyService {
   }
 
   /**
-   * Upload an image to ComfyUI
+   * Upload an image to ComfyUI with retry logic
    */
   async uploadImage(
     imageBuffer: Buffer,
     filename: string,
     subfolder: string = "",
     type: string = "input",
-    overwrite: boolean = true
+    overwrite: boolean = true,
   ): Promise<{ name: string; subfolder: string; type: string }> {
     if (!this.apiUrl) {
       throw new Error(
-        "ComfyUI API URL is not configured. Please set COMFYUI_API_URL in .env file"
+        "ComfyUI API URL is not configured. Please set COMFYUI_API_URL in .env file",
       );
     }
 
-    try {
-      const FormData = (await import("form-data")).default;
-      const formData = new FormData();
+    const maxRetries = 3;
+    let retryCount = 0;
 
-      formData.append("image", imageBuffer, {
-        filename: filename,
-        contentType: "image/png",
-      });
+    while (retryCount < maxRetries) {
+      try {
+        const FormData = (await import("form-data")).default;
+        const formData = new FormData();
 
-      if (subfolder) {
-        formData.append("subfolder", subfolder);
+        formData.append("image", imageBuffer, {
+          filename: filename,
+          contentType: "image/png",
+        });
+
+        if (subfolder) {
+          formData.append("subfolder", subfolder);
+        }
+
+        formData.append("type", type);
+        formData.append("overwrite", overwrite.toString());
+
+        const response = await this.httpClient.post("/upload/image", formData, {
+          headers: {
+            ...formData.getHeaders(),
+          },
+        });
+
+        return response.data;
+      } catch (error: any) {
+        const statusCode = error.response?.status;
+        const isTimeout =
+          error.code === "ECONNABORTED" || error.code === "ETIMEDOUT";
+        const isRetryable =
+          statusCode === 502 ||
+          statusCode === 503 ||
+          statusCode === 504 ||
+          isTimeout;
+
+        retryCount++;
+
+        if (isRetryable && retryCount < maxRetries) {
+          const waitTime = Math.min(1000 * Math.pow(2, retryCount - 1), 5000); // Exponential backoff: 1s, 2s, 4s
+          const reason = isTimeout ? "timeout" : `status ${statusCode}`;
+          console.log(
+            `⚠️ Image upload failed (${reason}), retrying in ${waitTime}ms (${retryCount}/${maxRetries})...`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        } else {
+          const errorMsg = error.response?.data?.error || error.message;
+          console.error("Upload image error:", {
+            url: `${this.apiUrl}/upload/image`,
+            status: error.response?.status,
+            message: errorMsg,
+          });
+          throw new Error(`Failed to upload image: ${errorMsg}`);
+        }
       }
-
-      formData.append("type", type);
-      formData.append("overwrite", overwrite.toString());
-
-      const response = await this.httpClient.post("/upload/image", formData, {
-        headers: {
-          ...formData.getHeaders(),
-        },
-      });
-
-      return response.data;
-    } catch (error: any) {
-      const errorMsg = error.response?.data?.error || error.message;
-      console.error("Upload image error:", {
-        url: `${this.apiUrl}/upload/image`,
-        status: error.response?.status,
-        message: errorMsg,
-      });
-      throw new Error(`Failed to upload image: ${errorMsg}`);
     }
+
+    throw new Error("Failed to upload image after max retries");
   }
 
   /**
@@ -281,11 +315,11 @@ class ComfyService {
    */
   createWebSocket(
     onMessage: (data: any) => void,
-    onError?: (error: Error) => void
+    onError?: (error: Error) => void,
   ) {
     if (!this.apiUrl) {
       console.error(
-        "❌ Cannot create WebSocket: ComfyUI API URL is not configured"
+        "❌ Cannot create WebSocket: ComfyUI API URL is not configured",
       );
       if (onError) onError(new Error("ComfyUI API URL is not configured"));
       return null;
@@ -353,12 +387,12 @@ class ComfyService {
     ) {
       console.error(
         "❌ Workflow has node errors:",
-        JSON.stringify(queueResponse.node_errors, null, 2)
+        JSON.stringify(queueResponse.node_errors, null, 2),
       );
       throw new Error(
         `Workflow validation failed: ${JSON.stringify(
-          queueResponse.node_errors
-        )}`
+          queueResponse.node_errors,
+        )}`,
       );
     }
 
@@ -386,14 +420,14 @@ class ComfyService {
                 status_str: status.status_str,
                 hasOutputs: !!outputs,
                 outputNodes: outputs ? Object.keys(outputs) : [],
-              })
+              }),
             );
 
             // Check for errors
             if (status.status_str === "error") {
               console.error(`❌ Workflow execution failed with error status`);
               reject(
-                new Error(`Workflow execution failed: ${status.status_str}`)
+                new Error(`Workflow execution failed: ${status.status_str}`),
               );
               return;
             }
@@ -405,7 +439,7 @@ class ComfyService {
 
               if (has828 && outputs) {
                 console.log(
-                  `✅ Workflow truly completed with video output (828 MKV: ${outputs["828"]?.gifs?.[0]?.filename})`
+                  `✅ Workflow truly completed with video output (828 MKV: ${outputs["828"]?.gifs?.[0]?.filename})`,
                 );
                 resolve({
                   prompt_id: promptId,
@@ -414,13 +448,13 @@ class ComfyService {
                 return;
               } else {
                 console.log(
-                  `⏳ Workflow marked complete but MKV not ready (828: ${!!has828}), waiting...`
+                  `⏳ Workflow marked complete but MKV not ready (828: ${!!has828}), waiting...`,
                 );
               }
             }
           } else {
             console.log(
-              `⏳ [Attempt ${attempts}] No history found for ${promptId} yet`
+              `⏳ [Attempt ${attempts}] No history found for ${promptId} yet`,
             );
 
             // After 10 attempts, check the queue to see if workflow is still pending
@@ -429,23 +463,23 @@ class ComfyService {
                 const queue = await this.getQueue();
                 const isInQueue =
                   queue.queue_running.some(
-                    (item: any) => item[1] === promptId
+                    (item: any) => item[1] === promptId,
                   ) ||
                   queue.queue_pending.some((item: any) => item[1] === promptId);
 
                 if (!isInQueue) {
                   console.error(
-                    `❌ Workflow ${promptId} not found in queue and no history - may have failed silently`
+                    `❌ Workflow ${promptId} not found in queue and no history - may have failed silently`,
                   );
                   reject(
                     new Error(
-                      `Workflow ${promptId} disappeared from queue without creating history entry`
-                    )
+                      `Workflow ${promptId} disappeared from queue without creating history entry`,
+                    ),
                   );
                   return;
                 }
                 console.log(
-                  `📋 Workflow ${promptId} is still in queue, continuing to wait...`
+                  `📋 Workflow ${promptId} is still in queue, continuing to wait...`,
                 );
               } catch (queueError) {
                 console.error(`⚠️ Failed to check queue status:`, queueError);
@@ -491,11 +525,11 @@ class ComfyService {
     filename: string,
     outputPath: string,
     subfolder: string = "",
-    type: string = "output"
+    type: string = "output",
   ): Promise<void> {
     if (!this.apiUrl) {
       throw new Error(
-        "ComfyUI API URL is not configured. Please set COMFYUI_API_URL in .env file"
+        "ComfyUI API URL is not configured. Please set COMFYUI_API_URL in .env file",
       );
     }
 

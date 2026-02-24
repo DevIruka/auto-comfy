@@ -187,6 +187,69 @@ class ComfyClient {
   }
 
   /**
+   * Get available LoRA files from a ComfyUI instance
+   */
+  async getLoraList(instanceId?: string): Promise<string[]> {
+    const params = instanceId ? `?instanceId=${instanceId}` : '';
+    const response = await fetch(`${this.baseUrl}/api/image-gen/loras${params}`);
+    const result: ApiResponse<{ loras: string[] }> = await response.json();
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to get LoRA list');
+    }
+    return (result as any).loras || [];
+  }
+
+  /**
+   * Generate images with dynamic LoRA configuration
+   */
+  async generateImage(params: {
+    instanceId?: string;
+    loras: Array<{
+      enabled: boolean;
+      loraName: string;
+      strengthModel: number;
+      strengthClip: number;
+    }>;
+    positivePrompt: string;
+    negativePrompt: string;
+    seed: number;
+    batchSize?: number;
+    outputPath?: string;
+  }): Promise<{ prompt_id: string; images: Array<{ filename: string; subfolder: string; type: string }>; savedPaths?: string[] }> {
+    const response = await fetch(`${this.baseUrl}/api/image-gen/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    const result: ApiResponse = await response.json();
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Failed to generate image');
+    }
+    return result.data;
+  }
+
+  /**
+   * Get image URL from image-gen endpoint (supports multi-instance)
+   */
+  getImageGenUrl(filename: string, subfolder: string = '', type: string = 'output', instanceId?: string): string {
+    const params = new URLSearchParams({ filename, subfolder, type });
+    if (instanceId) params.set('instanceId', instanceId);
+    return `${this.baseUrl}/api/image-gen/view?${params}`;
+  }
+
+  /**
+   * Get available ComfyUI instances
+   */
+  async getComfyInstances(): Promise<Array<{ id: string; url: string; name: string }>> {
+    const response = await fetch(`${this.baseUrl}/api/comfy-instances`);
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error('Failed to get ComfyUI instances');
+    }
+    return result.instances || [];
+  }
+
+  /**
    * 이미지 업로드
    * @param file - 업로드할 이미지 파일
    * @param subfolder - 서브폴더 (선택사항)

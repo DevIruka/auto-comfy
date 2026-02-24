@@ -40,6 +40,7 @@ batchRouter.post(
       outputFolderPath,
       prefixPrompt,
       includeRandomSeeds = false,
+      autoStopPod = false,
     } = req.body;
 
     if (!folderPath) {
@@ -58,6 +59,7 @@ batchRouter.post(
       outputFolderPath || "",
       prefixPrompt,
       includeRandomSeeds,
+      autoStopPod,
     );
 
     // Start processing
