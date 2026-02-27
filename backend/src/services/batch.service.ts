@@ -2,7 +2,8 @@ import { readdir, stat, mkdir } from "fs/promises";
 import { join, basename, extname } from "path";
 import { v4 as uuidv4 } from "uuid";
 import { readFileSync } from "fs";
-import { comfyService } from "./comfy.service.js";
+import type { ComfyService } from "./comfy.service.js";
+import { comfyManager } from "./comfy-manager.service.js";
 import { createWanWorkflow } from "../utils/workflow-helpers.js";
 import { runPodService } from "./runpod.service.js";
 import { podUsageTracker } from "./pod-usage-tracker.service.js";
@@ -16,7 +17,8 @@ export interface BatchJob {
   outputFolderPath: string;
   prefixPrompt: string;
   includeRandomSeeds: boolean;
-  autoStopPod: boolean; // NEW: Auto-stop RunPod after completion
+  autoStopPod: boolean;
+  comfyInstanceId: string;
   status: "pending" | "running" | "paused" | "completed" | "failed" | "stopped";
   currentImageIndex: number;
   totalImages: number;
@@ -55,6 +57,9 @@ class BatchService {
   private isStopped: Map<string, boolean> = new Map();
   private poseConfig: PoseConfig = {};
   private broadcastCallback?: (jobId: string, data: any) => void;
+  /** 한 인스턴스에서 동시에 하나의 작업만 실행 (포트별 직렬화) */
+  private runningJobByInstance: Map<string, string> = new Map();
+  private instanceQueue: Map<string, string[]> = new Map();
 
   constructor() {
     this.loadPoseConfig();
@@ -154,8 +159,11 @@ class BatchService {
     prefixPrompt: string,
     includeRandomSeeds: boolean = false,
     autoStopPod: boolean = false,
+    comfyInstanceId?: string,
   ): Promise<BatchJob> {
     const jobId = uuidv4();
+    const instanceId =
+      comfyInstanceId || comfyManager.getDefaultInstanceId();
 
     // Scan folder to get image count
     const imageTasks = await this.scanFolder(folderPath);
@@ -173,6 +181,7 @@ class BatchService {
       prefixPrompt,
       includeRandomSeeds,
       autoStopPod,
+      comfyInstanceId: instanceId,
       status: "pending",
       currentImageIndex: 0,
       totalImages: imageTasks.length,
@@ -192,7 +201,20 @@ class BatchService {
   }
 
   /**
-   * Start batch processing
+   * Release instance slot and start next job in queue for that instance
+   */
+  private releaseInstanceAndStartNext(instanceId: string): void {
+    this.runningJobByInstance.delete(instanceId);
+    const q = this.instanceQueue.get(instanceId);
+    if (q && q.length > 0) {
+      const nextJobId = q.shift()!;
+      this.instanceQueue.set(instanceId, q);
+      void this.startBatch(nextJobId);
+    }
+  }
+
+  /**
+   * Start batch processing (per-instance queue: only one job per port at a time)
    */
   async startBatch(jobId: string): Promise<void> {
     const job = this.jobs.get(jobId);
@@ -204,16 +226,38 @@ class BatchService {
       throw new Error(`Job ${jobId} is already running`);
     }
 
+    const instanceId = job.comfyInstanceId;
+    if (this.runningJobByInstance.get(instanceId)) {
+      const q = this.instanceQueue.get(instanceId) ?? [];
+      q.push(jobId);
+      this.instanceQueue.set(instanceId, q);
+      this.addLog(jobId, `Queued for instance ${instanceId} (${q.length} ahead)`);
+      return;
+    }
+
+    this.runningJobByInstance.set(instanceId, jobId);
     job.status = "running";
     this.addLog(jobId, "Starting batch processing");
 
-    // Start processing in background
-    this.processBatch(jobId).catch((error) => {
-      console.error(`❌ Batch job ${jobId} failed:`, error);
-      job.status = "failed";
-      job.error = error.message;
-      this.addLog(jobId, `Failed: ${error.message}`);
-    });
+    const comfyInstance = comfyManager.getInstance(job.comfyInstanceId);
+    const podId = runPodService.extractPodIdFromUrl(comfyInstance.getApiUrl());
+    if (podId && job.autoStopPod) {
+      podUsageTracker.acquire(podId);
+    }
+
+    this.processBatch(jobId)
+      .catch((error) => {
+        console.error(`❌ Batch job ${jobId} failed:`, error);
+        job.status = "failed";
+        job.error = error.message;
+        this.addLog(jobId, `Failed: ${error.message}`);
+        if (podId && job.autoStopPod) {
+          podUsageTracker.release(podId);
+        }
+      })
+      .finally(() => {
+        this.releaseInstanceAndStartNext(instanceId);
+      });
   }
 
   /**
@@ -222,6 +266,8 @@ class BatchService {
   private async processBatch(jobId: string): Promise<void> {
     const job = this.jobs.get(jobId);
     if (!job) return;
+
+    const comfyInstance = comfyManager.getInstance(job.comfyInstanceId);
 
     try {
       // Scan folder again to get fresh list
@@ -251,7 +297,7 @@ class BatchService {
         );
 
         // Process this image (generate 5 videos)
-        await this.processImageTask(jobId, imageTask);
+        await this.processImageTask(jobId, imageTask, comfyInstance);
       }
 
       // All done
@@ -261,7 +307,7 @@ class BatchService {
 
       // Auto-stop RunPod if enabled (and no other jobs using it)
       if (job.autoStopPod) {
-        const comfyUrl = process.env.COMFYUI_API_URL || "";
+        const comfyUrl = comfyInstance.getApiUrl();
         const podId = runPodService.extractPodIdFromUrl(comfyUrl);
 
         if (podId) {
@@ -302,6 +348,7 @@ class BatchService {
   private async processImageTask(
     jobId: string,
     imageTask: ImageTask,
+    comfyInstance: ComfyService,
   ): Promise<void> {
     const job = this.jobs.get(jobId);
     if (!job) return;
@@ -319,8 +366,8 @@ class BatchService {
       const imageBuffer = await import("fs/promises").then((fs) =>
         fs.readFile(imageTask.imagePath),
       );
-      const uploadResult = await comfyService.uploadImage(
-        imageBuffer,
+      const uploadResult = await comfyInstance.uploadImage(
+        imageBuffer as Buffer,
         imageTask.imageName,
       );
       const uploadedImageName = uploadResult.name;
@@ -380,7 +427,7 @@ class BatchService {
 
         while (workflowRetries < maxWorkflowRetries) {
           try {
-            result = await comfyService.executeWorkflow(workflow);
+            result = await comfyInstance.executeWorkflow(workflow);
             this.addLog(jobId, `Workflow executed: ${result.prompt_id}`);
             break; // Success, exit retry loop
           } catch (error: any) {
@@ -431,7 +478,7 @@ class BatchService {
           const mkvFile = result.outputs["828"].gifs[0];
           const mkvFilename = videoFilename.replace(".mp4", ".mkv");
           const mkvOutputPath = join(poseOutputFolder, mkvFilename);
-          await comfyService.downloadAndSaveVideo(
+          await comfyInstance.downloadAndSaveVideo(
             mkvFile.filename,
             mkvOutputPath,
             mkvFile.subfolder,

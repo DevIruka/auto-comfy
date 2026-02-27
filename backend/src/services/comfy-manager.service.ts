@@ -1,9 +1,14 @@
 import { ComfyService } from "./comfy.service.js";
+import { runPodService } from "./runpod.service.js";
 
 export interface ComfyInstance {
   id: string;
   url: string;
   name: string;
+  /** RunPod pod ID when URL is RunPod proxy (e.g. sxfk3cvhn9zjr6) */
+  podId: string | null;
+  /** Port from URL when RunPod proxy (e.g. 8188, 8189) */
+  port: string | null;
 }
 
 /**
@@ -25,15 +30,17 @@ class ComfyManagerService {
     const env = process.env;
     let count = 0;
 
-    // Check for numbered instances
-    for (let i = 1; i <= 10; i++) {
+    // Check for numbered instances (up to 20 for multi-GPU per pod)
+    for (let i = 1; i <= 20; i++) {
       const url = env[`COMFYUI_API_URL_${i}`];
       if (url) {
         const id = `comfy${i}`;
         const name = env[`COMFYUI_NAME_${i}`] || `ComfyUI Pod ${i}`;
+        const podId = runPodService.extractPodIdFromUrl(url);
+        const port = runPodService.extractPortFromRunPodUrl(url);
 
         this.instances.set(id, new ComfyService(url, id));
-        this.instanceInfo.set(id, { id, url, name });
+        this.instanceInfo.set(id, { id, url, name, podId, port });
         count++;
         console.log(`✅ Loaded ComfyUI instance: ${name} (${id}) - ${url}`);
       }
@@ -44,9 +51,11 @@ class ComfyManagerService {
       const id = "comfy1";
       const name = "ComfyUI Default";
       const url = env.COMFYUI_API_URL;
+      const podId = runPodService.extractPodIdFromUrl(url);
+      const port = runPodService.extractPortFromRunPodUrl(url);
 
       this.instances.set(id, new ComfyService(url, id));
-      this.instanceInfo.set(id, { id, url, name });
+      this.instanceInfo.set(id, { id, url, name, podId, port });
       count++;
       console.log(`✅ Loaded ComfyUI instance: ${name} (${id}) - ${url}`);
     }

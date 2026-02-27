@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { comfyClient } from "../api/comfy-client";
+import {
+  comfyClient,
+  type ComfyInstanceInfo,
+  groupInstancesByPod,
+} from "../api/comfy-client";
 import {
   imageBatchClient,
   type PoseInfo,
@@ -15,11 +19,6 @@ interface LoraSlot {
   strengthClip: number;
 }
 
-interface ComfyInstance {
-  id: string;
-  url: string;
-  name: string;
-}
 
 interface PoseRow {
   name: string;
@@ -75,7 +74,7 @@ function CollapsibleBlock({
 
 export default function ImageBatchProcessor() {
   // ComfyUI instances
-  const [instances, setInstances] = useState<ComfyInstance[]>([]);
+  const [instances, setInstances] = useState<ComfyInstanceInfo[]>([]);
   const [selectedInstance, setSelectedInstance] = useState("");
   const [loraList, setLoraList] = useState<string[]>([]);
   const [loraSlots, setLoraSlots] = useState<LoraSlot[]>(DEFAULT_LORAS);
@@ -327,10 +326,15 @@ export default function ImageBatchProcessor() {
               onChange={(e) => setSelectedInstance(e.target.value)}
               className="ib-select"
             >
-              {instances.map((inst) => (
-                <option key={inst.id} value={inst.id}>
-                  {inst.name}
-                </option>
+              {groupInstancesByPod(instances).map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.instances.map((inst) => (
+                    <option key={inst.id} value={inst.id}>
+                      {inst.name}
+                      {inst.port ? ` :${inst.port}` : ""}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>
@@ -722,8 +726,8 @@ export default function ImageBatchProcessor() {
               <h3>작업 큐</h3>
               <div className="ib-queue-summary">
                 <span>대기: {queueState.queue.length}건</span>
-                {queueState.currentJobId && (
-                  <span>실행 중: {queueState.currentJobId.slice(0, 8)}…</span>
+                {(queueState.currentJobIds?.length ?? (queueState.currentJobId ? 1 : 0)) > 0 && (
+                  <span>실행 중: {queueState.currentJobIds?.length ?? 1}건</span>
                 )}
               </div>
               <ul className="ib-job-list">

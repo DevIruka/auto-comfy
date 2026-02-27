@@ -9,6 +9,8 @@ import emotionBatchRouter from "./routes/emotion-batch.routes.js";
 import comfyInstancesRouter from "./routes/comfy-instances.routes.js";
 import imageGenRouter from "./routes/image-gen.routes.js";
 import imageBatchRouter from "./routes/image-batch.routes.js";
+import faceMaskRouter from "./routes/face-mask.routes.js";
+import emotionPipelineRouter from "./routes/emotion-pipeline.routes.js";
 import { setupWebSocket } from "./routes/websocket.routes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -41,6 +43,8 @@ app.use("/api/emotion-batch", emotionBatchRouter);
 app.use("/api/comfy-instances", comfyInstancesRouter);
 app.use("/api/image-gen", imageGenRouter);
 app.use("/api/image-batch", imageBatchRouter);
+app.use("/api/tools/face-mask", faceMaskRouter);
+app.use("/api/emotion-pipeline", emotionPipelineRouter);
 
 // Error handling
 app.use(errorHandler);

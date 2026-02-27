@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { comfyService } from '../services/comfy.service.js';
 
@@ -8,7 +8,7 @@ export const comfyRouter = Router();
  * Queue a workflow for execution
  * POST /api/comfy/queue
  */
-comfyRouter.post('/queue', asyncHandler(async (req, res) => {
+comfyRouter.post('/queue', asyncHandler(async (req: Request, res: Response) => {
   const { workflow } = req.body;
 
   if (!workflow) {
@@ -30,7 +30,7 @@ comfyRouter.post('/queue', asyncHandler(async (req, res) => {
  * Execute a workflow and wait for completion
  * POST /api/comfy/execute
  */
-comfyRouter.post('/execute', asyncHandler(async (req, res) => {
+comfyRouter.post('/execute', asyncHandler(async (req: Request, res: Response) => {
   const { workflow } = req.body;
 
   if (!workflow) {
@@ -52,7 +52,7 @@ comfyRouter.post('/execute', asyncHandler(async (req, res) => {
  * Get workflow execution history
  * GET /api/comfy/history/:promptId?
  */
-comfyRouter.get('/history/:promptId?', asyncHandler(async (req, res) => {
+comfyRouter.get('/history/:promptId?', asyncHandler(async (req: Request, res: Response) => {
   const { promptId } = req.params;
   const history = await comfyService.getHistory(promptId);
 
@@ -66,7 +66,7 @@ comfyRouter.get('/history/:promptId?', asyncHandler(async (req, res) => {
  * Get current queue status
  * GET /api/comfy/queue
  */
-comfyRouter.get('/queue', asyncHandler(async (req, res) => {
+comfyRouter.get('/queue', asyncHandler(async (req: Request, res: Response) => {
   const queue = await comfyService.getQueue();
 
   res.json({
@@ -79,7 +79,7 @@ comfyRouter.get('/queue', asyncHandler(async (req, res) => {
  * Cancel a prompt
  * POST /api/comfy/cancel
  */
-comfyRouter.post('/cancel', asyncHandler(async (req, res) => {
+comfyRouter.post('/cancel', asyncHandler(async (req: Request, res: Response) => {
   const { promptId } = req.body;
 
   if (!promptId) {
@@ -101,7 +101,7 @@ comfyRouter.post('/cancel', asyncHandler(async (req, res) => {
  * Get available nodes and models
  * GET /api/comfy/object-info
  */
-comfyRouter.get('/object-info', asyncHandler(async (req, res) => {
+comfyRouter.get('/object-info', asyncHandler(async (req: Request, res: Response) => {
   const objectInfo = await comfyService.getObjectInfo();
 
   res.json({
@@ -114,7 +114,7 @@ comfyRouter.get('/object-info', asyncHandler(async (req, res) => {
  * Get system stats
  * GET /api/comfy/system-stats
  */
-comfyRouter.get('/system-stats', asyncHandler(async (req, res) => {
+comfyRouter.get('/system-stats', asyncHandler(async (req: Request, res: Response) => {
   const stats = await comfyService.getSystemStats();
 
   res.json({
@@ -127,7 +127,7 @@ comfyRouter.get('/system-stats', asyncHandler(async (req, res) => {
  * Get an image
  * GET /api/comfy/image
  */
-comfyRouter.get('/image', asyncHandler(async (req, res) => {
+comfyRouter.get('/image', asyncHandler(async (req: Request, res: Response) => {
   const { filename, subfolder = '', type = 'output' } = req.query;
 
   if (!filename || typeof filename !== 'string') {
@@ -158,7 +158,7 @@ comfyRouter.get('/image', asyncHandler(async (req, res) => {
  * Get ComfyUI API info
  * GET /api/comfy/info
  */
-comfyRouter.get('/info', asyncHandler(async (req, res) => {
+comfyRouter.get('/info', asyncHandler(async (req: Request, res: Response) => {
   res.json({
     success: true,
     data: {

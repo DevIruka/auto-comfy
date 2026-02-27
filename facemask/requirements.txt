@@ -1,0 +1,16 @@
+# 얼굴 마스킹 도구 (face_mask.py) 의존 패키지
+#
+# 설치 방법 (CPU 전용):
+#   pip install -r requirements.txt
+#
+# GPU(CUDA) 사용 시 torch/torchvision은 아래 명령으로 별도 설치:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+#   (cu121 자리에 본인 CUDA 버전에 맞는 값을 입력하세요)
+#   그 후: pip install opencv-python numpy segment-anything ultralytics
+
+opencv-python>=4.8.0
+numpy>=1.24.0
+torch>=2.0.0
+torchvision>=0.15.0
+segment-anything>=1.0
+ultralytics>=8.0.0

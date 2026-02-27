@@ -41,6 +41,7 @@ batchRouter.post(
       prefixPrompt,
       includeRandomSeeds = false,
       autoStopPod = false,
+      comfyInstanceId,
     } = req.body;
 
     if (!folderPath) {
@@ -60,6 +61,7 @@ batchRouter.post(
       prefixPrompt,
       includeRandomSeeds,
       autoStopPod,
+      comfyInstanceId,
     );
 
     // Start processing

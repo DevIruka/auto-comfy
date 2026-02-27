@@ -39,6 +39,8 @@ export interface HistoryResponse {
     status: {
       status_str: string;
       completed: boolean;
+      /** ComfyUI error details: e.g. [["execution_error", { exception_message, ... }]] */
+      messages?: [string, unknown][];
     };
   };
 }
@@ -425,32 +427,56 @@ export class ComfyService {
 
             // Check for errors
             if (status.status_str === "error") {
-              console.error(`❌ Workflow execution failed with error status`);
-              reject(
-                new Error(`Workflow execution failed: ${status.status_str}`),
-              );
+              const statusAny = status as { messages?: [string, unknown][] };
+              let detail = "error";
+              if (Array.isArray(statusAny.messages) && statusAny.messages.length > 0) {
+                for (let i = statusAny.messages.length - 1; i >= 0; i--) {
+                  const entry = statusAny.messages[i];
+                  if (!Array.isArray(entry) || entry.length < 2) continue;
+                  const payload = entry[1];
+                  if (typeof payload === "string") {
+                    detail = payload;
+                    break;
+                  }
+                  if (payload && typeof payload === "object") {
+                    const p = payload as Record<string, unknown>;
+                    detail =
+                      (p.exception_message as string) ??
+                      (p.message as string) ??
+                      (p.error as string) ??
+                      JSON.stringify(payload);
+                    break;
+                  }
+                }
+                console.error(`❌ ComfyUI error detail:`, detail);
+              } else {
+                console.error(`❌ Workflow execution failed with error status`);
+              }
+              reject(new Error(`Workflow execution failed: ${detail}`));
               return;
             }
 
-            if (status.completed) {
-              // Check if we actually have video output (MKV only - node 828)
+            if (status.completed && outputs) {
+              // Video workflow: optional wait for node 828 MKV
               const has828 =
-                outputs?.["828"]?.gifs && outputs["828"].gifs.length > 0;
+                outputs["828"]?.gifs && outputs["828"].gifs.length > 0;
+              // Image or other: any output counts as done (e.g. node 1044, 212)
+              const hasAnyOutput = Object.keys(outputs).length > 0;
 
-              if (has828 && outputs) {
+              if (has828) {
                 console.log(
-                  `✅ Workflow truly completed with video output (828 MKV: ${outputs["828"]?.gifs?.[0]?.filename})`,
+                  `✅ Workflow completed with video output (828 MKV: ${outputs["828"]?.gifs?.[0]?.filename})`,
                 );
-                resolve({
-                  prompt_id: promptId,
-                  outputs: outputs,
-                });
-                return;
-              } else {
+              } else if (hasAnyOutput) {
                 console.log(
-                  `⏳ Workflow marked complete but MKV not ready (828: ${!!has828}), waiting...`,
+                  `✅ Workflow completed with outputs (nodes: ${Object.keys(outputs).join(", ")})`,
                 );
               }
+              resolve({
+                prompt_id: promptId,
+                outputs: outputs,
+              });
+              return;
             }
           } else {
             console.log(

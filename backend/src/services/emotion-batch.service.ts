@@ -74,6 +74,9 @@ class EmotionBatchService {
   private isStopped: Map<string, boolean> = new Map();
   private emotionConfig: EmotionConfig = {};
   private broadcastCallback?: (jobId: string, data: any) => void;
+  /** 한 인스턴스에서 동시에 하나의 작업만 실행 (포트별 직렬화) */
+  private runningJobByInstance: Map<string, string> = new Map();
+  private instanceQueue: Map<string, string[]> = new Map();
 
   constructor() {
     this.loadEmotionConfig();
@@ -273,7 +276,20 @@ class EmotionBatchService {
   }
 
   /**
-   * Start batch processing
+   * Release instance slot and start next job in queue for that instance
+   */
+  private releaseInstanceAndStartNext(instanceId: string): void {
+    this.runningJobByInstance.delete(instanceId);
+    const q = this.instanceQueue.get(instanceId);
+    if (q && q.length > 0) {
+      const nextJobId = q.shift()!;
+      this.instanceQueue.set(instanceId, q);
+      void this.startBatch(nextJobId);
+    }
+  }
+
+  /**
+   * Start batch processing (per-instance queue: only one job per port at a time)
    */
   async startBatch(jobId: string): Promise<void> {
     const job = this.jobs.get(jobId);
@@ -285,28 +301,38 @@ class EmotionBatchService {
       throw new Error(`Job ${jobId} is already running`);
     }
 
+    const instanceId = job.comfyInstanceId;
+    if (this.runningJobByInstance.get(instanceId)) {
+      const q = this.instanceQueue.get(instanceId) ?? [];
+      q.push(jobId);
+      this.instanceQueue.set(instanceId, q);
+      this.addLog(jobId, `Queued for instance ${instanceId} (${q.length} ahead)`);
+      return;
+    }
+
+    this.runningJobByInstance.set(instanceId, jobId);
     job.status = "running";
     this.addLog(jobId, "Starting emotion batch processing");
 
-    // Register pod usage
     const comfyInstance = comfyManager.getInstance(job.comfyInstanceId);
     const podId = runPodService.extractPodIdFromUrl(comfyInstance.getApiUrl());
     if (podId && job.autoStopPod) {
       podUsageTracker.acquire(podId);
     }
 
-    // Process in background
-    this.processBatch(jobId).catch((error) => {
-      console.error(`Error in batch ${jobId}:`, error);
-      job.status = "failed";
-      job.error = error.message;
-      this.addLog(jobId, `Batch failed: ${error.message}`);
-
-      // Release pod on failure
-      if (podId && job.autoStopPod) {
-        podUsageTracker.release(podId);
-      }
-    });
+    this.processBatch(jobId)
+      .catch((error) => {
+        console.error(`Error in batch ${jobId}:`, error);
+        job.status = "failed";
+        job.error = error.message;
+        this.addLog(jobId, `Batch failed: ${error.message}`);
+        if (podId && job.autoStopPod) {
+          podUsageTracker.release(podId);
+        }
+      })
+      .finally(() => {
+        this.releaseInstanceAndStartNext(instanceId);
+      });
   }
 
   /**
@@ -788,15 +814,27 @@ class EmotionBatchService {
   }
 
   /**
-   * Stop batch processing
+   * Stop batch processing. For running/paused jobs sets stop flag; for pending jobs removes from queue and marks stopped.
    */
   stopBatch(jobId: string): void {
     const job = this.jobs.get(jobId);
-    if (job) {
-      this.isStopped.set(jobId, true);
-      job.status = "stopped";
-      this.addLog(jobId, "Batch processing stopped");
+    if (!job) return;
+
+    if (job.status === "pending") {
+      const instanceId = job.comfyInstanceId;
+      const q = this.instanceQueue.get(instanceId);
+      if (q) {
+        const idx = q.indexOf(jobId);
+        if (idx !== -1) {
+          q.splice(idx, 1);
+          this.instanceQueue.set(instanceId, q);
+        }
+      }
     }
+
+    this.isStopped.set(jobId, true);
+    job.status = "stopped";
+    this.addLog(jobId, "Batch processing stopped");
   }
 
   /**

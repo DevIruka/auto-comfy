@@ -5,20 +5,20 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: {
     message: string;
-    details?: any;
+    details?: unknown;
   };
 }
 
 export interface ComfyWorkflow {
   [nodeId: string]: {
-    inputs: Record<string, any>;
+    inputs: Record<string, unknown>;
     class_type: string;
-    _meta?: any;
+    _meta?: unknown;
   };
 }
 
@@ -33,6 +33,38 @@ export interface ExecutionResult {
       }>;
     };
   };
+}
+
+export interface ComfyInstanceInfo {
+  id: string;
+  url: string;
+  name: string;
+  podId?: string | null;
+  port?: string | null;
+}
+
+export function groupInstancesByPod(
+  instances: ComfyInstanceInfo[],
+): Array<{ podId: string | null; label: string; instances: ComfyInstanceInfo[] }> {
+  const byPod = new Map<string | null, ComfyInstanceInfo[]>();
+  for (const inst of instances) {
+    const key = inst.podId ?? null;
+    if (!byPod.has(key)) byPod.set(key, []);
+    byPod.get(key)!.push(inst);
+  }
+  const result: Array<{
+    podId: string | null;
+    label: string;
+    instances: ComfyInstanceInfo[];
+  }> = [];
+  byPod.forEach((insts, podId) => {
+    const label =
+      podId != null
+        ? `Pod ${podId}`
+        : "기타";
+    result.push({ podId, label, instances: insts });
+  });
+  return result;
 }
 
 class ComfyClient {
@@ -54,13 +86,13 @@ class ComfyClient {
       body: JSON.stringify({ workflow }),
     });
 
-    const result: ApiResponse = await response.json();
+    const result: ApiResponse<{ prompt_id: string; number: number }> = await response.json();
 
     if (!result.success) {
       throw new Error(result.error?.message || 'Failed to queue workflow');
     }
 
-    return result.data;
+    return result.data!;
   }
 
   /**
@@ -87,7 +119,7 @@ class ComfyClient {
   /**
    * 히스토리 조회
    */
-  async getHistory(promptId?: string): Promise<any> {
+  async getHistory(promptId?: string): Promise<unknown> {
     const url = promptId
       ? `${this.baseUrl}/api/comfy/history/${promptId}`
       : `${this.baseUrl}/api/comfy/history`;
@@ -105,7 +137,7 @@ class ComfyClient {
   /**
    * 큐 상태 조회
    */
-  async getQueueStatus(): Promise<any> {
+  async getQueueStatus(): Promise<unknown> {
     const response = await fetch(`${this.baseUrl}/api/comfy/queue`);
     const result: ApiResponse = await response.json();
 
@@ -138,7 +170,7 @@ class ComfyClient {
   /**
    * 시스템 통계 조회
    */
-  async getSystemStats(): Promise<any> {
+  async getSystemStats(): Promise<unknown> {
     const response = await fetch(`${this.baseUrl}/api/comfy/system-stats`);
     const result: ApiResponse = await response.json();
 
@@ -192,11 +224,11 @@ class ComfyClient {
   async getLoraList(instanceId?: string): Promise<string[]> {
     const params = instanceId ? `?instanceId=${instanceId}` : '';
     const response = await fetch(`${this.baseUrl}/api/image-gen/loras${params}`);
-    const result: ApiResponse<{ loras: string[] }> = await response.json();
+    const result = await response.json();
     if (!result.success) {
       throw new Error(result.error?.message || 'Failed to get LoRA list');
     }
-    return (result as any).loras || [];
+    return result.data?.loras ?? result.loras ?? [];
   }
 
   /**
@@ -221,11 +253,15 @@ class ComfyClient {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     });
-    const result: ApiResponse = await response.json();
+    const result: ApiResponse<{
+      prompt_id: string;
+      images: Array<{ filename: string; subfolder: string; type: string }>;
+      savedPaths?: string[];
+    }> = await response.json();
     if (!result.success) {
       throw new Error(result.error?.message || 'Failed to generate image');
     }
-    return result.data;
+    return result.data!;
   }
 
   /**
@@ -240,7 +276,7 @@ class ComfyClient {
   /**
    * Get available ComfyUI instances
    */
-  async getComfyInstances(): Promise<Array<{ id: string; url: string; name: string }>> {
+  async getComfyInstances(): Promise<ComfyInstanceInfo[]> {
     const response = await fetch(`${this.baseUrl}/api/comfy-instances`);
     const result = await response.json();
     if (!result.success) {
@@ -277,13 +313,13 @@ class ComfyClient {
       body: formData,
     });
 
-    const result: ApiResponse = await response.json();
+    const result: ApiResponse<{ name: string; subfolder: string; type: string }> = await response.json();
 
     if (!result.success) {
       throw new Error(result.error?.message || 'Failed to upload image');
     }
 
-    return result.data;
+    return result.data!;
   }
 }
 

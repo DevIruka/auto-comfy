@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { batchClient } from "../api/batch-client";
 import type { BatchJob, ImageTask } from "../api/batch-client";
+import {
+  comfyClient,
+  type ComfyInstanceInfo,
+  groupInstancesByPod,
+} from "../api/comfy-client";
 import { useBatchProgress } from "../hooks/useBatchProgress";
 import "./BatchProcessor.css";
 
@@ -24,14 +29,58 @@ export default function BatchProcessor() {
   ]);
   const [prefixPrompt, setPrefixPrompt] = useState("");
   const [includeRandomSeeds, setIncludeRandomSeeds] = useState(false);
-  const [autoStopPod, setAutoStopPod] = useState(false); // NEW: Auto-stop RunPod
-  const [currentJob, setCurrentJob] = useState<BatchJob | null>(null);
+  const [autoStopPod, setAutoStopPod] = useState(false);
+  const [comfyInstances, setComfyInstances] = useState<ComfyInstanceInfo[]>([]);
+  const [selectedComfyInstanceId, setSelectedComfyInstanceId] = useState("");
+  const [jobs, setJobs] = useState<BatchJob[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
-  const [currentPairIndex, setCurrentPairIndex] = useState(0);
 
-  const { progress, isConnected, resetProgress } = useBatchProgress();
+  const { progress, isConnected } = useBatchProgress();
+
+  // 현재 진행 중인 작업 (WS progress.jobId와 일치하는 job)
+  const currentJob = progress.jobId
+    ? jobs.find((j) => j.id === progress.jobId)
+    : jobs.find((j) => j.status === "running" || j.status === "paused");
+  const hasRunningOrPending = jobs.some(
+    (j) => j.status === "running" || j.status === "paused" || j.status === "pending",
+  );
+
+  const loadComfyInstances = useCallback(async () => {
+    try {
+      const instances = await comfyClient.getComfyInstances();
+      setComfyInstances(instances);
+      setSelectedComfyInstanceId((prev) =>
+        prev ? prev : instances[0]?.id ?? "",
+      );
+    } catch (err) {
+      console.error("Failed to load ComfyUI instances:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadComfyInstances();
+  }, [loadComfyInstances]);
+
+  const fetchJobs = useCallback(async () => {
+    try {
+      const list = await batchClient.getAllJobs();
+      setJobs(list);
+    } catch (err) {
+      console.error("Failed to fetch batch jobs:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
+
+  useEffect(() => {
+    if (!hasRunningOrPending) return;
+    const interval = setInterval(fetchJobs, 5000);
+    return () => clearInterval(interval);
+  }, [hasRunningOrPending, fetchJobs]);
 
   const addLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -117,7 +166,6 @@ export default function BatchProcessor() {
   };
 
   const handleStart = async () => {
-    // Validate all folder pairs
     for (const pair of folderPairs) {
       if (!pair.inputPath) {
         setError("모든 Input 폴더 경로를 입력하세요");
@@ -128,7 +176,6 @@ export default function BatchProcessor() {
         return;
       }
     }
-
     if (!prefixPrompt) {
       setError("접두 프롬프트를 입력하세요");
       return;
@@ -136,20 +183,13 @@ export default function BatchProcessor() {
 
     setLoading(true);
     setError(null);
-    resetProgress();
-    addLog(`📦 ${folderPairs.length}개의 폴더 쌍 배치 작업 시작`);
+    addLog(`📦 ${folderPairs.length}개 작업을 큐에 추가합니다`);
 
     try {
-      // Process each folder pair sequentially
       for (let i = 0; i < folderPairs.length; i++) {
         const pair = folderPairs[i];
         const isLastPair = i === folderPairs.length - 1;
         const shouldStopPod = autoStopPod && isLastPair;
-
-        setCurrentPairIndex(i);
-        addLog(
-          `\n🎬 [${i + 1}/${folderPairs.length}] 처리 시작: ${pair.inputPath} → ${pair.outputPath}`,
-        );
 
         const result = await batchClient.startBatch(
           pair.inputPath,
@@ -157,52 +197,22 @@ export default function BatchProcessor() {
           prefixPrompt,
           includeRandomSeeds,
           shouldStopPod,
+          selectedComfyInstanceId || undefined,
         );
-        setCurrentJob(result.job);
-        addLog(`✅ 배치 작업 생성: ${result.jobId}`);
+        setJobs((prev) => [...prev, result.job]);
         addLog(
-          `   총 ${result.job.totalImages}개 이미지, ${result.job.totalVideos}개 영상 생성 예정`,
+          `✅ [${i + 1}/${folderPairs.length}] 작업 추가: ${result.jobId.slice(0, 8)}… (${pair.inputPath} → ${pair.outputPath})`,
         );
-
-        // Wait for this batch to complete before moving to next
-        await waitForBatchCompletion(result.jobId);
-        addLog(`✅ [${i + 1}/${folderPairs.length}] 완료: ${pair.inputPath}`);
       }
-
-      addLog("\n🎉 모든 폴더 쌍 처리 완료!");
+      addLog("작업이 백그라운드에서 실행됩니다. 계속해서 새 작업을 추가할 수 있습니다.");
+      await fetchJobs();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "시작 실패";
       setError(errorMessage);
       addLog(`❌ 실패: ${errorMessage}`);
     } finally {
       setLoading(false);
-      setCurrentPairIndex(0);
     }
-  };
-
-  const waitForBatchCompletion = async (jobId: string): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      const checkInterval = setInterval(async () => {
-        try {
-          const status = await batchClient.getBatchStatus(jobId);
-          if (status.status === "completed") {
-            clearInterval(checkInterval);
-            resolve();
-          } else if (
-            status.status === "failed" ||
-            status.status === "stopped"
-          ) {
-            clearInterval(checkInterval);
-            reject(
-              new Error(`Batch ${jobId} failed with status: ${status.status}`),
-            );
-          }
-        } catch (err) {
-          clearInterval(checkInterval);
-          reject(err);
-        }
-      }, 5000); // Check every 5 seconds
-    });
   };
 
   const handlePause = async () => {
@@ -216,8 +226,7 @@ export default function BatchProcessor() {
       addLog("✅ 배치 작업 일시정지됨");
 
       // Update job status
-      const updatedJob = await batchClient.getBatchStatus(currentJob.id);
-      setCurrentJob(updatedJob);
+      await fetchJobs();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "일시정지 실패";
       setError(errorMessage);
@@ -237,9 +246,7 @@ export default function BatchProcessor() {
       await batchClient.resumeBatch(currentJob.id);
       addLog("✅ 배치 작업 재시작됨");
 
-      // Update job status
-      const updatedJob = await batchClient.getBatchStatus(currentJob.id);
-      setCurrentJob(updatedJob);
+      await fetchJobs();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "재시작 실패";
       setError(errorMessage);
@@ -249,8 +256,9 @@ export default function BatchProcessor() {
     }
   };
 
-  const handleStop = async () => {
-    if (!currentJob) return;
+  const handleStop = async (jobId?: string) => {
+    const targetId = jobId ?? currentJob?.id;
+    if (!targetId) return;
 
     if (!window.confirm("정말로 배치 작업을 중지하시겠습니까?")) return;
 
@@ -258,12 +266,9 @@ export default function BatchProcessor() {
     addLog("중지 요청");
 
     try {
-      await batchClient.stopBatch(currentJob.id);
+      await batchClient.stopBatch(targetId);
       addLog("✅ 배치 작업 중지됨");
-
-      // Update job status
-      const updatedJob = await batchClient.getBatchStatus(currentJob.id);
-      setCurrentJob(updatedJob);
+      await fetchJobs();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "중지 실패";
       setError(errorMessage);
@@ -321,6 +326,28 @@ export default function BatchProcessor() {
           <h2>설정</h2>
 
           <div className="form-group">
+            <label htmlFor="comfy-instance">ComfyUI 인스턴스 (포드)</label>
+            <select
+              id="comfy-instance"
+              value={selectedComfyInstanceId}
+              onChange={(e) => setSelectedComfyInstanceId(e.target.value)}
+              disabled={loading}
+              className="comfy-select"
+            >
+              {groupInstancesByPod(comfyInstances).map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.instances.map((inst) => (
+                    <option key={inst.id} value={inst.id}>
+                      {inst.name}
+                      {inst.port ? ` :${inst.port}` : ""}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
             <label htmlFor="prefix-prompt">접두 프롬프트 (캐릭터 설명)</label>
             <textarea
               id="prefix-prompt"
@@ -328,7 +355,7 @@ export default function BatchProcessor() {
               onChange={(e) => setPrefixPrompt(e.target.value)}
               rows={3}
               placeholder="1girl, long hair, blue eyes, school uniform"
-              disabled={loading || currentJob?.status === "running"}
+              disabled={loading}
             />
           </div>
 
@@ -338,7 +365,7 @@ export default function BatchProcessor() {
                 type="checkbox"
                 checked={includeRandomSeeds}
                 onChange={(e) => setIncludeRandomSeeds(e.target.checked)}
-                disabled={loading || currentJob?.status === "running"}
+                disabled={loading}
                 className="toggle-checkbox"
               />
               <span className="toggle-text">
@@ -358,7 +385,7 @@ export default function BatchProcessor() {
                 type="checkbox"
                 checked={autoStopPod}
                 onChange={(e) => setAutoStopPod(e.target.checked)}
-                disabled={loading || currentJob?.status === "running"}
+                disabled={loading}
                 className="toggle-checkbox"
               />
               <span className="toggle-text">
@@ -377,7 +404,7 @@ export default function BatchProcessor() {
               <h3>폴더 설정</h3>
               <button
                 onClick={addFolderPair}
-                disabled={loading || currentJob?.status === "running"}
+                disabled={loading}
                 className="btn-add"
               >
                 ➕ 폴더 쌍 추가
@@ -391,7 +418,7 @@ export default function BatchProcessor() {
                   {folderPairs.length > 1 && (
                     <button
                       onClick={() => removeFolderPair(pair.id)}
-                      disabled={loading || currentJob?.status === "running"}
+                      disabled={loading}
                       className="btn-remove"
                     >
                       ❌
@@ -408,7 +435,7 @@ export default function BatchProcessor() {
                       updateFolderPair(pair.id, "inputPath", e.target.value)
                     }
                     placeholder="c:\Users\박민준\Desktop\input"
-                    disabled={loading || currentJob?.status === "running"}
+                    disabled={loading}
                   />
                 </div>
 
@@ -421,7 +448,7 @@ export default function BatchProcessor() {
                       updateFolderPair(pair.id, "outputPath", e.target.value)
                     }
                     placeholder="./output"
-                    disabled={loading || currentJob?.status === "running"}
+                    disabled={loading}
                   />
                 </div>
 
@@ -430,8 +457,7 @@ export default function BatchProcessor() {
                   disabled={
                     pair.isScanning ||
                     loading ||
-                    !pair.inputPath ||
-                    currentJob?.status === "running"
+                    !pair.inputPath
                   }
                   className="btn-scan"
                 >
@@ -505,17 +531,46 @@ export default function BatchProcessor() {
               disabled={
                 loading ||
                 !prefixPrompt ||
-                folderPairs.some((p) => !p.inputPath || !p.outputPath) ||
-                currentJob?.status === "running"
+                folderPairs.some((p) => !p.inputPath || !p.outputPath)
               }
               className="btn-primary btn-large"
             >
-              {loading
-                ? `처리 중 (${currentPairIndex + 1}/${folderPairs.length})...`
-                : "▶️ 전체 배치 시작"}
+              {loading ? "추가 중…" : "▶️ 작업 큐에 추가"}
             </button>
           </div>
         </div>
+
+        {/* Jobs list */}
+        {jobs.length > 0 && (
+          <div className="config-section job-list-section">
+            <h2>작업 목록</h2>
+            <div className="job-list-summary">
+              대기/실행 중: {jobs.filter((j) => ["pending", "running", "paused"].includes(j.status)).length}건
+              / 완료·실패: {jobs.filter((j) => ["completed", "failed", "stopped"].includes(j.status)).length}건
+            </div>
+            <ul className="batch-job-list">
+              {jobs.slice().reverse().slice(0, 30).map((j) => (
+                <li key={j.id} className={`batch-job-item batch-job-${j.status}`}>
+                  <span className="batch-job-id" title={j.id}>{j.id.slice(0, 8)}…</span>
+                  <span className={`badge badge-${j.status}`}>{j.status}</span>
+                  <span className="batch-job-meta">
+                    {j.currentImageIndex}/{j.totalImages} 이미지 · {j.currentVideoIndex}/{j.totalVideos} 영상
+                  </span>
+                  {(j.status === "running" || j.status === "paused") && (
+                    <button
+                      type="button"
+                      className="btn-small btn-danger"
+                      onClick={() => handleStop(j.id)}
+                      disabled={loading}
+                    >
+                      중지
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Control Section */}
         {currentJob && (
@@ -546,7 +601,7 @@ export default function BatchProcessor() {
               {(currentJob.status === "running" ||
                 currentJob.status === "paused") && (
                 <button
-                  onClick={handleStop}
+                  onClick={() => handleStop()}
                   disabled={loading}
                   className="btn-danger"
                 >

@@ -20,6 +20,8 @@ export interface ImageBatchJobStatus {
 export interface ImageBatchQueueState {
   queue: string[];
   currentJobId: string | null;
+  /** Running job IDs (one per instance; multiple when different ports run in parallel) */
+  currentJobIds?: string[];
   jobs: ImageBatchJobStatus[];
 }
 

@@ -55,3 +55,376 @@
   flex: 1;
   padding: 0;
 }
+
+/* Face Mask Tool */
+.facemask-tool {
+  padding: 1.5rem;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.facemask-header {
+  margin-bottom: 1.5rem;
+}
+
+.facemask-header h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+}
+
+.facemask-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.facemask-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e5e7eb;
+}
+
+.facemask-card .form-group {
+  margin-bottom: 1rem;
+}
+
+.facemask-card .form-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.facemask-card input[type="file"] {
+  display: block;
+  padding: 0.5rem 0;
+}
+
+.facemask-card .file-name {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.facemask-card .checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.facemask-card .button-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.facemask-card .btn-primary {
+  padding: 0.6rem 1.25rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.facemask-card .btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.facemask-card .btn-secondary {
+  padding: 0.6rem 1.25rem;
+  background: #e5e7eb;
+  color: #374151;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.facemask-card .btn-small {
+  margin-top: 0.75rem;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.9rem;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.facemask-error {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #fef2f2;
+  color: #b91c1c;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.facemask-success {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #f0fdf4;
+  color: #166534;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.facemask-card .file-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.facemask-card .result-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.facemask-card .no-face-message {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: #b45309;
+}
+
+.facemask-card .result-image-wrap {
+  max-width: 100%;
+  overflow: auto;
+}
+
+.facemask-card .result-image-wrap img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+/* Emotion Pipeline */
+.emotion-pipeline {
+  padding: 1.5rem;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.emotion-pipeline-header {
+  margin-bottom: 1.5rem;
+}
+
+.emotion-pipeline-header h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+}
+
+.emotion-pipeline-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.emotion-pipeline-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e5e7eb;
+}
+
+.emotion-pipeline-card .form-group {
+  margin-bottom: 1rem;
+}
+
+.emotion-pipeline-card .form-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.emotion-pipeline-card .form-hint {
+  margin: -0.5rem 0 1rem;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.emotion-pipeline-card .ep-negative-extra textarea {
+  width: 100%;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+.emotion-pipeline-card .form-error {
+  color: #dc2626;
+  margin-bottom: 1rem;
+}
+
+.emotion-pipeline-card .pipeline-status {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.emotion-pipeline-card .pipeline-status h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.emotion-pipeline-card .pipeline-status .status-error {
+  color: #dc2626;
+}
+
+.emotion-pipeline-card .pipeline-logs {
+  max-height: 240px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+}
+
+.emotion-pipeline-card .log-line {
+  padding: 0.2rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.emotion-pipeline-card .ep-section {
+  margin-bottom: 1.25rem;
+}
+
+.emotion-pipeline-card .ep-section-title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.emotion-pipeline-card .ep-btn-sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.emotion-pipeline-card .ep-lora-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.emotion-pipeline-card .ep-lora-slot {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  min-width: 180px;
+}
+
+.emotion-pipeline-card .ep-lora-slot.disabled {
+  opacity: 0.6;
+}
+
+.emotion-pipeline-card .ep-check {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  margin-bottom: 0.35rem;
+}
+
+.emotion-pipeline-card .ep-lora-body .ep-select {
+  width: 100%;
+  padding: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.emotion-pipeline-card .ep-strengths {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.emotion-pipeline-card .ep-strengths > div {
+  flex: 1;
+}
+
+.emotion-pipeline-card .ep-strengths label {
+  display: block;
+  font-size: 0.8rem;
+  margin-bottom: 0.2rem;
+}
+
+.emotion-pipeline-card .ep-strengths input {
+  width: 100%;
+  padding: 0.25rem;
+}
+
+.emotion-pipeline-card .pipeline-queue-section {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.emotion-pipeline-card .pipeline-queue-section h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.emotion-pipeline-card .pipeline-job-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+.emotion-pipeline-card .pipeline-job-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 0.25rem;
+  border: 1px solid #e5e7eb;
+}
+
+.emotion-pipeline-card .pipeline-job-item:hover {
+  background: #f9fafb;
+}
+
+.emotion-pipeline-card .pipeline-job-item.selected {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.emotion-pipeline-card .pipeline-job-item.running {
+  border-color: #f59e0b;
+}
+
+.emotion-pipeline-card .pipeline-job-item.completed {
+  border-color: #22c55e;
+}
+
+.emotion-pipeline-card .pipeline-job-item.failed {
+  border-color: #ef4444;
+}
+
+.emotion-pipeline-card .job-id {
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+.emotion-pipeline-card .job-status {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+.emotion-pipeline-card .job-progress {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.emotion-pipeline-card .pipeline-queue-section .pipeline-status h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}

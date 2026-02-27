@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { comfyClient } from "../api/comfy-client";
+import {
+  comfyClient,
+  type ComfyInstanceInfo,
+  groupInstancesByPod,
+} from "../api/comfy-client";
 import "./ComfyDemo.css";
 
 interface LoraSlot {
@@ -9,11 +13,6 @@ interface LoraSlot {
   strengthClip: number;
 }
 
-interface ComfyInstance {
-  id: string;
-  url: string;
-  name: string;
-}
 
 interface GeneratedImage {
   url: string;
@@ -93,7 +92,7 @@ function CollapsibleBlock({
 }
 
 export default function ComfyDemo() {
-  const [instances, setInstances] = useState<ComfyInstance[]>([]);
+  const [instances, setInstances] = useState<ComfyInstanceInfo[]>([]);
   const [selectedInstance, setSelectedInstance] = useState("");
   const [loraList, setLoraList] = useState<string[]>([]);
   const [loraSlots, setLoraSlots] = useState<LoraSlot[]>(DEFAULT_LORAS);
@@ -242,10 +241,15 @@ export default function ComfyDemo() {
               onChange={(e) => setSelectedInstance(e.target.value)}
               className="form-select"
             >
-              {instances.map((inst) => (
-                <option key={inst.id} value={inst.id}>
-                  {inst.name}
-                </option>
+              {groupInstancesByPod(instances).map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.instances.map((inst) => (
+                    <option key={inst.id} value={inst.id}>
+                      {inst.name}
+                      {inst.port ? ` :${inst.port}` : ""}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>

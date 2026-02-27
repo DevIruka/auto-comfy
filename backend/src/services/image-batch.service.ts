@@ -75,8 +75,10 @@ class ImageBatchService {
   private jobParams: Map<string, ImageBatchJobParams> = new Map();
   private stopRequested: Map<string, boolean> = new Map();
   private broadcastCallback: BroadcastCallback | null = null;
-  private jobQueue: string[] = [];
-  private currentJobId: string | null = null;
+  /** Queue per ComfyUI instance: different ports run in parallel. */
+  private jobQueueByInstance = new Map<string, string[]>();
+  /** Current running job per instance (one at a time per port). */
+  private currentJobByInstance = new Map<string, string>();
 
   constructor() {
     this.loadConfig();
@@ -143,12 +145,18 @@ class ImageBatchService {
   getQueueState(): {
     queue: string[];
     currentJobId: string | null;
+    currentJobIds: string[];
     jobs: ImageBatchJob[];
   } {
     const jobs = Array.from(this.jobs.values());
+    const queue = Array.from(this.jobQueueByInstance.values()).flat();
+    const currentJobIds = Array.from(this.currentJobByInstance.values()).filter(
+      Boolean,
+    );
     return {
-      queue: [...this.jobQueue],
-      currentJobId: this.currentJobId,
+      queue,
+      currentJobId: currentJobIds[0] ?? null,
+      currentJobIds,
       jobs: jobs.sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -157,19 +165,28 @@ class ImageBatchService {
   }
 
   private processQueue(): void {
-    if (this.currentJobId !== null) return;
-    if (this.jobQueue.length === 0) return;
-    const nextId = this.jobQueue.shift()!;
-    this.currentJobId = nextId;
-    this.broadcastQueueState();
-    this.startJob(nextId)
-      .finally(() => {
-        this.currentJobId = null;
-        this.processQueue();
-      })
-      .catch((err) => {
-        console.error(`Image batch job ${nextId} error:`, err);
-      });
+    const instanceIds = new Set<string>([
+      ...this.jobQueueByInstance.keys(),
+      ...this.currentJobByInstance.keys(),
+    ]);
+    for (const instanceId of instanceIds) {
+      if (this.currentJobByInstance.get(instanceId) != null) continue;
+      const queue = this.jobQueueByInstance.get(instanceId);
+      if (!queue?.length) continue;
+
+      const nextId = queue.shift()!;
+      this.jobQueueByInstance.set(instanceId, queue);
+      this.currentJobByInstance.set(instanceId, nextId);
+      this.broadcastQueueState();
+      this.startJob(nextId)
+        .finally(() => {
+          this.currentJobByInstance.delete(instanceId);
+          this.processQueue();
+        })
+        .catch((err) => {
+          console.error(`Image batch job ${nextId} error:`, err);
+        });
+    }
   }
 
   getJob(jobId: string): ImageBatchJob | undefined {
@@ -198,7 +215,11 @@ class ImageBatchService {
     this.jobParams.set(jobId, params);
     this.stopRequested.set(jobId, false);
 
-    this.jobQueue.push(jobId);
+    const instanceId = params.instanceId;
+    if (!this.jobQueueByInstance.has(instanceId)) {
+      this.jobQueueByInstance.set(instanceId, []);
+    }
+    this.jobQueueByInstance.get(instanceId)!.push(jobId);
     this.broadcastQueueState();
     this.processQueue();
 

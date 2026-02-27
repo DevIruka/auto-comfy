@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { emotionBatchClient } from "../api/emotion-batch-client";
 import type {
   EmotionBatchJob,
   EmotionImageTask,
-  ComfyInstance,
+  ComfyInstanceInfo,
 } from "../api/emotion-batch-client";
+import { groupInstancesByPod } from "../api/comfy-client";
 import { useEmotionBatchProgress } from "../hooks/useEmotionBatchProgress";
 import "./BatchProcessor.css"; // Reuse existing styles
 
@@ -31,30 +32,37 @@ export default function EmotionBatchProcessor() {
   const [prefixPrompt, setPrefixPrompt] = useState("");
   const [includeSpeakNatural, setIncludeSpeakNatural] = useState(false);
   const [autoStopPod, setAutoStopPod] = useState(false); // NEW: Auto-stop RunPod
-  const [comfyInstances, setComfyInstances] = useState<ComfyInstance[]>([]);
-  const [currentJob, setCurrentJob] = useState<EmotionBatchJob | null>(null);
+  const [comfyInstances, setComfyInstances] = useState<ComfyInstanceInfo[]>([]);
+  const [jobs, setJobs] = useState<EmotionBatchJob[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
-  const [currentPairIndex, setCurrentPairIndex] = useState(0);
 
-  const { progress, isConnected, resetProgress } = useEmotionBatchProgress();
+  const { progress, isConnected } = useEmotionBatchProgress();
 
-  // Load ComfyUI instances on mount
-  useEffect(() => {
-    loadComfyInstances();
+  const currentJob = progress.jobId
+    ? jobs.find((j) => j.id === progress.jobId)
+    : jobs.find((j) => j.status === "running" || j.status === "paused");
+  const hasRunningOrPending = jobs.some(
+    (j) =>
+      j.status === "running" || j.status === "paused" || j.status === "pending",
+  );
+
+  const addLog = useCallback((message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setLogs((prev) => [...prev, `[${timestamp}] ${message}`]);
   }, []);
 
-  const loadComfyInstances = async () => {
+  const loadComfyInstances = useCallback(async () => {
     try {
       const instances = await emotionBatchClient.getComfyInstances();
       setComfyInstances(instances);
-
-      // Set default ComfyUI for first folder pair
-      if (instances.length > 0 && folderPairs[0].comfyInstanceId === "") {
+      if (instances.length > 0) {
         setFolderPairs((prev) =>
           prev.map((pair, idx) =>
-            idx === 0 ? { ...pair, comfyInstanceId: instances[0].id } : pair,
+            idx === 0 && pair.comfyInstanceId === ""
+              ? { ...pair, comfyInstanceId: instances[0].id }
+              : pair,
           ),
         );
       }
@@ -62,12 +70,30 @@ export default function EmotionBatchProcessor() {
       console.error("Failed to load ComfyUI instances:", err);
       addLog("⚠️ ComfyUI 인스턴스를 불러오지 못했습니다");
     }
-  };
+  }, [addLog]);
 
-  const addLog = (message: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setLogs((prev) => [...prev, `[${timestamp}] ${message}`]);
-  };
+  useEffect(() => {
+    loadComfyInstances();
+  }, [loadComfyInstances]);
+
+  const fetchJobs = useCallback(async () => {
+    try {
+      const list = await emotionBatchClient.getAllJobs();
+      setJobs(list);
+    } catch (err) {
+      console.error("Failed to fetch emotion batch jobs:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
+
+  useEffect(() => {
+    if (!hasRunningOrPending) return;
+    const interval = setInterval(fetchJobs, 5000);
+    return () => clearInterval(interval);
+  }, [hasRunningOrPending, fetchJobs]);
 
   const addFolderPair = () => {
     setFolderPairs((prev) => [
@@ -175,22 +201,13 @@ export default function EmotionBatchProcessor() {
 
     setLoading(true);
     setError(null);
-    resetProgress();
-    addLog(`📦 ${folderPairs.length}개의 감정 비디오 배치 작업 시작`);
+    addLog(`📦 ${folderPairs.length}개 작업을 큐에 추가합니다`);
 
     try {
-      // Process each folder pair sequentially
       for (let i = 0; i < folderPairs.length; i++) {
         const pair = folderPairs[i];
         const isLastPair = i === folderPairs.length - 1;
         const shouldStopPod = autoStopPod && isLastPair;
-
-        setCurrentPairIndex(i);
-        addLog(
-          `\n😊 [${i + 1}/${folderPairs.length}] 처리 시작: ${
-            pair.inputPath
-          } → ${pair.outputPath} (${pair.comfyInstanceId})`,
-        );
 
         const result = await emotionBatchClient.startBatch(
           pair.inputPath,
@@ -200,51 +217,20 @@ export default function EmotionBatchProcessor() {
           includeSpeakNatural,
           shouldStopPod,
         );
-        setCurrentJob(result.job);
-        addLog(`✅ 배치 작업 생성: ${result.jobId}`);
+        setJobs((prev) => [...prev, result.job]);
         addLog(
-          `   총 ${result.job.totalImages}개 이미지, ${result.job.totalVideos}개 영상 생성 예정 (각 이미지당 9개 영상)`,
+          `✅ [${i + 1}/${folderPairs.length}] 작업 추가: ${result.jobId.slice(0, 8)}… (${pair.inputPath} → ${pair.outputPath})`,
         );
-
-        // Wait for this batch to complete before moving to next
-        await waitForBatchCompletion(result.jobId);
-        addLog(`✅ [${i + 1}/${folderPairs.length}] 완료: ${pair.inputPath}`);
       }
-
-      addLog("\n🎉 모든 감정 비디오 배치 작업 완료!");
+      addLog("작업이 백그라운드에서 실행됩니다. 계속해서 새 작업을 추가할 수 있습니다.");
+      await fetchJobs();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "시작 실패";
       setError(errorMessage);
       addLog(`❌ 실패: ${errorMessage}`);
     } finally {
       setLoading(false);
-      setCurrentPairIndex(0);
     }
-  };
-
-  const waitForBatchCompletion = async (jobId: string): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      const checkInterval = setInterval(async () => {
-        try {
-          const status = await emotionBatchClient.getBatchStatus(jobId);
-          if (status.status === "completed") {
-            clearInterval(checkInterval);
-            resolve();
-          } else if (
-            status.status === "failed" ||
-            status.status === "stopped"
-          ) {
-            clearInterval(checkInterval);
-            reject(
-              new Error(`Batch ${jobId} failed with status: ${status.status}`),
-            );
-          }
-        } catch (err) {
-          clearInterval(checkInterval);
-          reject(err);
-        }
-      }, 5000);
-    });
   };
 
   const handlePause = async () => {
@@ -256,9 +242,7 @@ export default function EmotionBatchProcessor() {
     try {
       await emotionBatchClient.pauseBatch(currentJob.id);
       addLog("✅ 배치 작업 일시정지됨");
-
-      const updatedJob = await emotionBatchClient.getBatchStatus(currentJob.id);
-      setCurrentJob(updatedJob);
+      await fetchJobs();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "일시정지 실패";
       setError(errorMessage);
@@ -277,9 +261,7 @@ export default function EmotionBatchProcessor() {
     try {
       await emotionBatchClient.resumeBatch(currentJob.id);
       addLog("✅ 배치 작업 재시작됨");
-
-      const updatedJob = await emotionBatchClient.getBatchStatus(currentJob.id);
-      setCurrentJob(updatedJob);
+      await fetchJobs();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "재시작 실패";
       setError(errorMessage);
@@ -289,8 +271,9 @@ export default function EmotionBatchProcessor() {
     }
   };
 
-  const handleStop = async () => {
-    if (!currentJob) return;
+  const handleStop = async (jobId?: string) => {
+    const targetId = jobId ?? currentJob?.id;
+    if (!targetId) return;
 
     if (!window.confirm("정말로 배치 작업을 중지하시겠습니까?")) return;
 
@@ -298,11 +281,9 @@ export default function EmotionBatchProcessor() {
     addLog("중지 요청");
 
     try {
-      await emotionBatchClient.stopBatch(currentJob.id);
+      await emotionBatchClient.stopBatch(targetId);
       addLog("✅ 배치 작업 중지됨");
-
-      const updatedJob = await emotionBatchClient.getBatchStatus(currentJob.id);
-      setCurrentJob(updatedJob);
+      await fetchJobs();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "중지 실패";
       setError(errorMessage);
@@ -366,7 +347,7 @@ export default function EmotionBatchProcessor() {
               onChange={(e) => setPrefixPrompt(e.target.value)}
               rows={3}
               placeholder="1girl, long hair, blue eyes, school uniform"
-              disabled={loading || currentJob?.status === "running"}
+              disabled={loading}
             />
           </div>
 
@@ -376,7 +357,7 @@ export default function EmotionBatchProcessor() {
                 type="checkbox"
                 checked={includeSpeakNatural}
                 onChange={(e) => setIncludeSpeakNatural(e.target.checked)}
-                disabled={loading || currentJob?.status === "running"}
+                disabled={loading}
               />{" "}
               SpeakNatural 영상도 생성 (Idle만 생성하려면 체크 해제)
             </label>
@@ -395,7 +376,7 @@ export default function EmotionBatchProcessor() {
                 type="checkbox"
                 checked={autoStopPod}
                 onChange={(e) => setAutoStopPod(e.target.checked)}
-                disabled={loading || currentJob?.status === "running"}
+                disabled={loading}
               />{" "}
               🛑 작업 완료 후 RunPod 자동 종료
             </label>
@@ -416,11 +397,7 @@ export default function EmotionBatchProcessor() {
               <h3>폴더 설정</h3>
               <button
                 onClick={addFolderPair}
-                disabled={
-                  loading ||
-                  currentJob?.status === "running" ||
-                  comfyInstances.length === 0
-                }
+                disabled={loading || comfyInstances.length === 0}
                 className="btn-add"
               >
                 ➕ 폴더 쌍 추가
@@ -434,7 +411,7 @@ export default function EmotionBatchProcessor() {
                   {folderPairs.length > 1 && (
                     <button
                       onClick={() => removeFolderPair(pair.id)}
-                      disabled={loading || currentJob?.status === "running"}
+                      disabled={loading}
                       className="btn-remove"
                     >
                       ❌
@@ -451,7 +428,7 @@ export default function EmotionBatchProcessor() {
                       updateFolderPair(pair.id, "inputPath", e.target.value)
                     }
                     placeholder="c:\Users\박민준\Desktop\마사지사\이미지\Sit"
-                    disabled={loading || currentJob?.status === "running"}
+                    disabled={loading}
                   />
                 </div>
 
@@ -464,7 +441,7 @@ export default function EmotionBatchProcessor() {
                       updateFolderPair(pair.id, "outputPath", e.target.value)
                     }
                     placeholder="./output/emotion"
-                    disabled={loading || currentJob?.status === "running"}
+                    disabled={loading}
                   />
                 </div>
 
@@ -479,14 +456,21 @@ export default function EmotionBatchProcessor() {
                         e.target.value,
                       )
                     }
-                    disabled={loading || currentJob?.status === "running"}
+                    disabled={loading}
                     className="comfy-select"
                   >
                     <option value="">선택하세요</option>
-                    {comfyInstances.map((instance) => (
-                      <option key={instance.id} value={instance.id}>
-                        {instance.name} - {instance.url}
-                      </option>
+                    {groupInstancesByPod(comfyInstances).map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.instances.map((instance) => (
+                          <option key={instance.id} value={instance.id}>
+                            {instance.name}
+                            {instance.port ? ` :${instance.port}` : ""}
+                            {" - "}
+                            {instance.url}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 </div>
@@ -496,8 +480,7 @@ export default function EmotionBatchProcessor() {
                   disabled={
                     pair.isScanning ||
                     loading ||
-                    !pair.inputPath ||
-                    currentJob?.status === "running"
+                    !pair.inputPath
                   }
                   className="btn-scan"
                 >
@@ -604,17 +587,69 @@ export default function EmotionBatchProcessor() {
                 !prefixPrompt ||
                 folderPairs.some(
                   (p) => !p.inputPath || !p.outputPath || !p.comfyInstanceId,
-                ) ||
-                currentJob?.status === "running"
+                )
               }
               className="btn-primary btn-large"
             >
               {loading
-                ? `처리 중 (${currentPairIndex + 1}/${folderPairs.length})...`
-                : "▶️ 전체 배치 시작"}
+                ? "추가 중…"
+                : "▶️ 작업 큐에 추가"}
             </button>
           </div>
         </div>
+
+        {/* Jobs list */}
+        {jobs.length > 0 && (
+          <div className="config-section job-list-section">
+            <h2>작업 목록</h2>
+            <div className="job-list-summary">
+              대기/실행 중:{" "}
+              {jobs.filter((j) =>
+                ["pending", "running", "paused"].includes(j.status),
+              ).length}
+              건 / 완료·실패:{" "}
+              {jobs.filter((j) =>
+                ["completed", "failed", "stopped"].includes(j.status),
+              ).length}
+              건
+            </div>
+            <ul className="batch-job-list">
+              {jobs
+                .slice()
+                .reverse()
+                .slice(0, 30)
+                .map((j) => (
+                  <li
+                    key={j.id}
+                    className={`batch-job-item batch-job-${j.status}`}
+                  >
+                    <span className="batch-job-id" title={j.id}>
+                      {j.id.slice(0, 8)}…
+                    </span>
+                    <span className={`badge badge-${j.status}`}>
+                      {j.status}
+                    </span>
+                    <span className="batch-job-meta">
+                      {j.currentImageIndex}/{j.totalImages} 이미지 ·{" "}
+                      {j.currentVideoIndex}/{j.totalVideos} 영상
+                    </span>
+                    {(j.status === "running" ||
+                      j.status === "paused" ||
+                      j.status === "pending") && (
+                      <button
+                        type="button"
+                        className="btn-small btn-danger"
+                        onClick={() => handleStop(j.id)}
+                        disabled={loading}
+                      >
+                        {j.status === "pending" ? "큐에서 제거" : "중지"}
+                      </button>
+                    )}
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
 
         {/* Control Section */}
         {currentJob && (
@@ -645,7 +680,7 @@ export default function EmotionBatchProcessor() {
               {(currentJob.status === "running" ||
                 currentJob.status === "paused") && (
                 <button
-                  onClick={handleStop}
+                  onClick={() => handleStop()}
                   disabled={loading}
                   className="btn-danger"
                 >

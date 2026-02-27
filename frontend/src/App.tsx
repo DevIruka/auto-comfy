@@ -3,11 +3,13 @@ import ComfyDemo from "./components/ComfyDemo";
 import BatchProcessor from "./components/BatchProcessor";
 import EmotionBatchProcessor from "./components/EmotionBatchProcessor";
 import ImageBatchProcessor from "./components/ImageBatchProcessor";
+import FaceMaskTool from "./components/FaceMaskTool";
+import EmotionPipeline from "./components/EmotionPipeline";
 import "./App.css";
 
 function App() {
   const [activeTab, setActiveTab] = useState<
-    "single" | "batch" | "emotion" | "imageBatch"
+    "single" | "batch" | "emotion" | "imageBatch" | "faceMask" | "emotionPipeline"
   >("single");
 
   return (
@@ -37,6 +39,18 @@ function App() {
         >
           Emotion Videos
         </button>
+        <button
+          className={`nav-tab ${activeTab === "faceMask" ? "active" : ""}`}
+          onClick={() => setActiveTab("faceMask")}
+        >
+          Face Mask
+        </button>
+        <button
+          className={`nav-tab ${activeTab === "emotionPipeline" ? "active" : ""}`}
+          onClick={() => setActiveTab("emotionPipeline")}
+        >
+          Emotion Pipeline
+        </button>
       </nav>
 
       <main className="app-main">
@@ -44,6 +58,8 @@ function App() {
         {activeTab === "imageBatch" && <ImageBatchProcessor />}
         {activeTab === "batch" && <BatchProcessor />}
         {activeTab === "emotion" && <EmotionBatchProcessor />}
+        {activeTab === "faceMask" && <FaceMaskTool />}
+        {activeTab === "emotionPipeline" && <EmotionPipeline />}
       </main>
     </div>
   );

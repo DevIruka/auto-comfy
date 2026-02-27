@@ -1,8 +1,12 @@
 import axios from "axios";
 import type { AxiosInstance } from "axios";
+import type { ComfyInstanceInfo } from "./comfy-client";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:3002/api";
+
+export type { ComfyInstanceInfo };
+export type ComfyInstance = ComfyInstanceInfo;
 
 export interface EmotionImageTask {
   pose: string;
@@ -31,12 +35,6 @@ export interface EmotionBatchJob {
   logs: string[];
 }
 
-export interface ComfyInstance {
-  id: string;
-  url: string;
-  name: string;
-}
-
 class EmotionBatchClient {
   private httpClient: AxiosInstance;
 
@@ -52,7 +50,7 @@ class EmotionBatchClient {
   /**
    * Get all available ComfyUI instances
    */
-  async getComfyInstances(): Promise<ComfyInstance[]> {
+  async getComfyInstances(): Promise<ComfyInstanceInfo[]> {
     try {
       const response = await this.httpClient.get("/comfy-instances");
       return response.data.instances;

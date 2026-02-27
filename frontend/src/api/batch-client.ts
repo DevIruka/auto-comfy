@@ -64,6 +64,7 @@ class BatchClient {
     prefixPrompt: string,
     includeRandomSeeds: boolean = false,
     autoStopPod: boolean = false,
+    comfyInstanceId?: string,
   ): Promise<{ jobId: string; job: BatchJob }> {
     try {
       const response = await this.httpClient.post("/batch/start", {
@@ -72,6 +73,7 @@ class BatchClient {
         prefixPrompt,
         includeRandomSeeds,
         autoStopPod,
+        comfyInstanceId,
       });
       return {
         jobId: response.data.jobId,

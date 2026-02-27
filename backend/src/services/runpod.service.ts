@@ -43,6 +43,22 @@ class RunPodService {
   }
 
   /**
+   * Extract port from RunPod proxy URL
+   * Example: https://sxfk3cvhn9zjr6-8188.proxy.runpod.net → 8188
+   */
+  extractPortFromRunPodUrl(comfyUrl: string): string | null {
+    try {
+      const match = comfyUrl.match(
+        /https?:\/\/[a-z0-9]+-(\d+)\.proxy\.runpod\.net/i,
+      );
+      return match ? match[1] : null;
+    } catch (error) {
+      console.error("Failed to extract port from URL:", error);
+      return null;
+    }
+  }
+
+  /**
    * Stop a RunPod pod
    */
   async stopPod(podId: string): Promise<boolean> {

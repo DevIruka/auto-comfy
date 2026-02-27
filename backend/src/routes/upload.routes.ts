@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { comfyService } from '../services/comfy.service.js';
@@ -25,7 +25,7 @@ const upload = multer({
  * Upload an image to ComfyUI
  * POST /api/upload/image
  */
-uploadRouter.post('/image', upload.single('image'), asyncHandler(async (req, res) => {
+uploadRouter.post('/image', upload.single('image'), asyncHandler(async (req: Request, res: Response) => {
   if (!req.file) {
     return res.status(400).json({
       success: false,
