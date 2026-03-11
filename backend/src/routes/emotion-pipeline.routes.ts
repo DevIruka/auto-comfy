@@ -4,6 +4,7 @@ import {
   createEmotionPipelineJob,
   getEmotionPipelineJob,
   getEmotionPipelineQueueState,
+  stopEmotionPipelineJob,
   type EmotionPipelineParams,
   type SdxlWaiPromptBlocks,
   type SdxlWaiLoraSlot,
@@ -92,6 +93,22 @@ emotionPipelineRouter.get(
       return res.status(404).json({ success: false, error: "Job not found" });
     }
     res.json({ success: true, data: job });
+  }),
+);
+
+/**
+ * POST /api/emotion-pipeline/:jobId/stop
+ * Stop a running or pending pipeline job
+ */
+emotionPipelineRouter.post(
+  "/:jobId/stop",
+  asyncHandler(async (req: Request, res: Response) => {
+    const { jobId } = req.params;
+    const ok = stopEmotionPipelineJob(jobId);
+    if (!ok) {
+      return res.status(404).json({ success: false, error: "Job not found or already finished" });
+    }
+    res.json({ success: true });
   }),
 );
 

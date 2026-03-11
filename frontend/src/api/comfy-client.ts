@@ -286,6 +286,35 @@ class ComfyClient {
   }
 
   /**
+   * Dynamically add a new ComfyUI instance
+   */
+  async addInstance(url: string, name?: string): Promise<ComfyInstanceInfo> {
+    const response = await fetch(`${this.baseUrl}/api/comfy-instances`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, name }),
+    });
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to add instance');
+    }
+    return result.instance;
+  }
+
+  /**
+   * Remove a ComfyUI instance
+   */
+  async removeInstance(instanceId: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/comfy-instances/${instanceId}`, {
+      method: 'DELETE',
+    });
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to remove instance');
+    }
+  }
+
+  /**
    * 이미지 업로드
    * @param file - 업로드할 이미지 파일
    * @param subfolder - 서브폴더 (선택사항)

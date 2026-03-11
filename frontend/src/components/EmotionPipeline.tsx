@@ -22,7 +22,7 @@ interface LoraSlot {
 
 interface JobStatus {
   jobId: string;
-  status: "pending" | "running" | "completed" | "failed";
+  status: "pending" | "running" | "completed" | "failed" | "stopped";
   totalSteps: number;
   currentStep: number;
   logs: string[];
@@ -137,6 +137,15 @@ export default function EmotionPipeline() {
       return () => clearInterval(t);
     }
   }, [selectedJobId, selectedJob?.status]);
+
+  const handleStop = async (jobId: string) => {
+    try {
+      await fetch(`${API_BASE}/api/emotion-pipeline/${jobId}/stop`, { method: "POST" });
+      fetchQueue();
+    } catch {
+      // ignore
+    }
+  };
 
   const handleStart = async () => {
     if (!folderPath.trim()) {
@@ -392,12 +401,31 @@ export default function EmotionPipeline() {
                       {j.currentStep}/{j.totalSteps}
                     </span>
                   )}
+                  {(j.status === "running" || j.status === "pending") && (
+                    <button
+                      className="job-stop-btn"
+                      onClick={(e) => { e.stopPropagation(); handleStop(j.jobId); }}
+                    >
+                      정지
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
             {selectedJob && (
               <div className="pipeline-status">
-                <h4>선택 작업: {selectedJob.jobId.slice(0, 8)} — {selectedJob.status}</h4>
+                <h4>
+                  선택 작업: {selectedJob.jobId.slice(0, 8)} — {selectedJob.status}
+                  {(selectedJob.status === "running" || selectedJob.status === "pending") && (
+                    <button
+                      className="job-stop-btn"
+                      style={{ marginLeft: "0.5rem" }}
+                      onClick={() => handleStop(selectedJob.jobId)}
+                    >
+                      정지
+                    </button>
+                  )}
+                </h4>
                 {selectedJob.totalSteps > 0 && (
                   <p>
                     진행: {selectedJob.currentStep} / {selectedJob.totalSteps}

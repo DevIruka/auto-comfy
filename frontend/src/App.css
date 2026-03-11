@@ -18,12 +18,20 @@
 
 .app-nav {
   display: flex;
-  justify-content: center;
-  gap: 1rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
   padding: 1rem;
   background: white;
   border-bottom: 2px solid #e5e7eb;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.nav-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .nav-tab {
@@ -54,6 +62,128 @@
 .app-main {
   flex: 1;
   padding: 0;
+}
+
+/* Pod Manager */
+.pod-manager {
+  width: 100%;
+  max-width: 900px;
+}
+
+.pod-manager-toggle {
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #374151;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pod-manager-toggle:hover {
+  background: #f3f4f6;
+  border-color: #667eea;
+}
+
+.pod-manager-panel {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.pod-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.pod-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.5rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.82rem;
+}
+
+.pod-info {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: black;
+  flex: 1;
+  margin-right: 0.5rem;
+}
+
+.pod-remove-btn {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.8rem;
+  border: 1px solid #fca5a5;
+  background: #fef2f2;
+  color: #dc2626;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.pod-remove-btn:hover {
+  background: #fee2e2;
+}
+
+.pod-add-form {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.pod-input {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.85rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  flex: 1;
+}
+
+.pod-input-name {
+  max-width: 150px;
+  flex: 0 0 auto;
+}
+
+.pod-add-btn {
+  padding: 0.35rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid #667eea;
+  background: #667eea;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pod-add-btn:hover {
+  background: #5a6fd6;
+}
+
+.pod-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pod-error {
+  margin-top: 0.4rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.82rem;
+  color: #dc2626;
+  background: #fef2f2;
+  border-radius: 4px;
 }
 
 /* Face Mask Tool */
@@ -406,6 +536,28 @@
 
 .emotion-pipeline-card .pipeline-job-item.failed {
   border-color: #ef4444;
+}
+
+.emotion-pipeline-card .pipeline-job-item.stopped {
+  border-color: #9ca3af;
+  opacity: 0.7;
+}
+
+.job-stop-btn {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid #ef4444;
+  background: #fef2f2;
+  color: #dc2626;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.job-stop-btn:hover {
+  background: #fee2e2;
 }
 
 .emotion-pipeline-card .job-id {

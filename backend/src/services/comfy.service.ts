@@ -90,6 +90,8 @@ export class ComfyService {
       );
     }
 
+    await this.freeMemory({ freeMemory: true });
+
     try {
       const response = await this.httpClient.post("/prompt", {
         prompt: workflow,
@@ -183,6 +185,22 @@ export class ComfyService {
       return response.data;
     } catch (error: any) {
       throw new Error(`Failed to cancel prompt: ${error.message}`);
+    }
+  }
+
+  /**
+   * Free GPU memory and clear execution cache.
+   * Clears Efficiency Nodes ED bbox/SAM caches that cause black images on consecutive runs.
+   */
+  async freeMemory(options?: { unloadModels?: boolean; freeMemory?: boolean }) {
+    try {
+      const response = await this.httpClient.post("/free", {
+        unload_models: options?.unloadModels ?? false,
+        free_memory: options?.freeMemory ?? true,
+      });
+      return response.data;
+    } catch (error: any) {
+      console.warn(`[ComfyService] freeMemory failed (non-fatal): ${error.message}`);
     }
   }
 
@@ -402,7 +420,7 @@ export class ComfyService {
 
     // Poll for completion
     return new Promise((resolve, reject) => {
-      const maxAttempts = 60; // 5 minutes with 5 second intervals
+      const maxAttempts = 120; // 10 minutes with 5 second intervals
       let attempts = 0;
 
       const checkStatus = async () => {

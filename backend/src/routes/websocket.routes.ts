@@ -4,6 +4,7 @@ import { comfyService } from "../services/comfy.service.js";
 import { batchService } from "../services/batch.service.js";
 import { emotionBatchService } from "../services/emotion-batch.service.js";
 import { imageBatchService } from "../services/image-batch.service.js";
+import { bannerBatchService } from "../services/banner-batch.service.js";
 
 export function setupWebSocket(server: Server) {
   const wss = new WebSocketServer({
@@ -23,6 +24,15 @@ export function setupWebSocket(server: Server) {
 
   // Setup image batch service broadcast callback
   imageBatchService.setBroadcastCallback((_jobId: string, data: unknown) => {
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(data));
+      }
+    });
+  });
+
+  // Setup banner batch service broadcast callback
+  bannerBatchService.setBroadcastCallback((_jobId: string, data: unknown) => {
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(JSON.stringify(data));

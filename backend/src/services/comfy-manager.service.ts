@@ -113,6 +113,40 @@ class ComfyManagerService {
     }
     return firstId;
   }
+
+  /**
+   * Dynamically add a new ComfyUI instance at runtime (no server restart needed).
+   * Returns the auto-assigned instance ID.
+   */
+  addInstance(url: string, name?: string): ComfyInstance {
+    let maxN = 0;
+    for (const id of this.instances.keys()) {
+      const m = id.match(/^comfy(\d+)$/);
+      if (m) maxN = Math.max(maxN, Number(m[1]));
+    }
+    const id = `comfy${maxN + 1}`;
+    const podId = runPodService.extractPodIdFromUrl(url);
+    const port = runPodService.extractPortFromRunPodUrl(url);
+    const displayName = name || `ComfyUI Pod ${maxN + 1}`;
+
+    this.instances.set(id, new ComfyService(url, id));
+    const info: ComfyInstance = { id, url, name: displayName, podId, port };
+    this.instanceInfo.set(id, info);
+    console.log(`✅ Dynamically added ComfyUI instance: ${displayName} (${id}) - ${url}`);
+    return info;
+  }
+
+  /**
+   * Remove a dynamically added instance. Throws if the instance doesn't exist.
+   */
+  removeInstance(instanceId: string): void {
+    if (!this.instances.has(instanceId)) {
+      throw new Error(`ComfyUI instance '${instanceId}' not found`);
+    }
+    this.instances.delete(instanceId);
+    this.instanceInfo.delete(instanceId);
+    console.log(`🗑️ Removed ComfyUI instance: ${instanceId}`);
+  }
 }
 
 export const comfyManager = new ComfyManagerService();

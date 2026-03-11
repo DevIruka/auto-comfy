@@ -30,7 +30,7 @@ export interface EmotionPipelineParams {
 
 export interface EmotionPipelineJob {
   jobId: string;
-  status: "pending" | "running" | "completed" | "failed";
+  status: "pending" | "running" | "completed" | "failed" | "stopped";
   totalSteps: number;
   currentStep: number;
   logs: string[];
@@ -40,6 +40,7 @@ export interface EmotionPipelineJob {
 
 const jobs = new Map<string, EmotionPipelineJob>();
 const jobParams = new Map<string, EmotionPipelineParams>();
+const stopRequested = new Map<string, boolean>();
 /** Queue per ComfyUI instance: different ports run in parallel. */
 const jobQueueByInstance = new Map<string, string[]>();
 /** Current running job per instance (one at a time per port). */
@@ -341,19 +342,58 @@ export async function startEmotionPipeline(
 
     const emotionsFolder = join(folderPath, "Emotions");
     await mkdir(emotionsFolder, { recursive: true });
+    await mkdir(join(emotionsFolder, "Neutral"), { recursive: true });
     for (const em of EMOTIONS) {
       await mkdir(join(emotionsFolder, em), { recursive: true });
     }
 
-    // Total steps: per image, per emotion, per "round" we do 1 inpaint + 1 upscale = 2 steps. Rounds = totalSeeds.
-    const totalSteps = masked.length * EMOTIONS.length * totalSeeds * 2;
+    const isStopped = () => stopRequested.get(jobId) === true;
+
+    // Total steps: Neutral upscale (1 step/round) + 4 emotions (inpaint+upscale = 2 steps/round)
+    const totalSteps = masked.length * (totalSeeds + EMOTIONS.length * totalSeeds * 2);
     setStep(jobId, 0, totalSteps);
     let step = 0;
 
     for (const { inputPath, outputPath } of masked) {
+      if (isStopped()) break;
       const baseName = basename(inputPath, extname(inputPath));
 
+      // --- Neutral: upscale original (unmasked) image directly, no inpaint ---
+      const originalBuffer = await readFile(inputPath);
+      for (let round = 0; round < totalSeeds; round++) {
+        if (isStopped()) break;
+        const seedNeutral = Math.floor(Math.random() * 1e15);
+        const neutralUploadName = `neutral_${baseName}_r${round}.png`;
+        const dimsNeutral = getPngDimensions(originalBuffer);
+        addLog(jobId, `Neutral ${round + 1}/${totalSeeds}: Upscale for ${baseName}`);
+        const neutralResult = await runWorkflowWithUpload(
+          comfy,
+          originalBuffer,
+          neutralUploadName,
+          {
+            seed: seedNeutral,
+            promptBlocks: baseBlocks,
+            loraSlots,
+            useHiresWorkflow: true,
+            imageWidth: dimsNeutral?.width,
+            imageHeight: dimsNeutral?.height,
+          }
+        );
+        step++;
+        setStep(jobId, step, totalSteps);
+
+        const neutralImg = getFirstImageFromOutput(neutralResult.outputs, HIRES_SAVE_NODE_ID);
+        if (neutralImg) {
+          const neutralBuf = await comfy.getImage(neutralImg.filename, neutralImg.subfolder || "", neutralImg.type || "output");
+          const neutralOutPath = join(emotionsFolder, "Neutral", `${baseName}_Neutral_${round}.png`);
+          await writeFile(neutralOutPath, neutralBuf);
+          addLog(jobId, `Saved: Neutral/${baseName}_Neutral_${round}.png`);
+        }
+      }
+
+      // --- 4 Emotions: inpaint → upscale ---
       for (const emotion of EMOTIONS) {
+        if (isStopped()) break;
         const emotionPrompt = (emotionConfig as unknown as Record<string, string>)[emotion] ?? "";
         const promptBlocks: SdxlWaiPromptBlocks = {
           ...baseBlocks,
@@ -362,8 +402,8 @@ export async function startEmotionPipeline(
 
         const maskedBuffer = await readFile(outputPath);
 
-        // Each "round" = full chain: inpaint → upscale. Do totalSeeds rounds per emotion.
         for (let round = 0; round < totalSeeds; round++) {
+          if (isStopped()) break;
           const seedInpaint = Math.floor(Math.random() * 1e15);
           const uploadName = `emotion_${baseName}_${emotion}_r${round}.png`;
 
@@ -384,6 +424,8 @@ export async function startEmotionPipeline(
           );
           step++;
           setStep(jobId, step, totalSteps);
+
+          if (isStopped()) break;
 
           const firstImage = getFirstImageFromOutput(inpaintResult.outputs);
           if (!firstImage) {
@@ -424,17 +466,48 @@ export async function startEmotionPipeline(
       }
     }
 
-    job.status = "completed";
-    addLog(jobId, "Pipeline completed.");
+    if (isStopped()) {
+      job.status = "stopped";
+      addLog(jobId, "Pipeline stopped by user.");
+    } else {
+      job.status = "completed";
+      addLog(jobId, "Pipeline completed.");
+    }
   } catch (err: any) {
-    job.status = "failed";
-    job.error = err?.message ?? String(err);
-    addLog(jobId, `Failed: ${job.error}`);
+    if (stopRequested.get(jobId)) {
+      job.status = "stopped";
+      addLog(jobId, "Pipeline stopped by user.");
+    } else {
+      job.status = "failed";
+      job.error = err?.message ?? String(err);
+      addLog(jobId, `Failed: ${job.error}`);
+    }
+  } finally {
+    stopRequested.delete(jobId);
   }
 }
 
 export function getEmotionPipelineJob(jobId: string): EmotionPipelineJob | undefined {
   return jobs.get(jobId);
+}
+
+/**
+ * Request a running/pending pipeline job to stop.
+ */
+export function stopEmotionPipelineJob(jobId: string): boolean {
+  const job = jobs.get(jobId);
+  if (!job) return false;
+  if (job.status !== "running" && job.status !== "pending") return false;
+  stopRequested.set(jobId, true);
+  if (job.status === "pending") {
+    job.status = "stopped";
+    addLog(jobId, "Job stopped (was pending).");
+    for (const [, queue] of jobQueueByInstance) {
+      const idx = queue.indexOf(jobId);
+      if (idx !== -1) queue.splice(idx, 1);
+    }
+  }
+  return true;
 }
 
 export function getEmotionPipelineQueueState(): {

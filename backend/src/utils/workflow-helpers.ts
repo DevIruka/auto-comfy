@@ -203,6 +203,8 @@ export function createImageGenWorkflow(options: {
   negativePrompt: string;
   seed: number;
   batchSize?: number;
+  width?: number;
+  height?: number;
 }): ComfyWorkflow {
   const workflowPath = join(process.cwd(), "src", "workflows", "image-gen.json");
   const baseWorkflow = JSON.parse(readFileSync(workflowPath, "utf-8"));
@@ -285,14 +287,15 @@ export function createImageGenWorkflow(options: {
     };
   }
 
-  // Set batch size (node 23)
-  if (options.batchSize && workflow["23"]) {
+  // Set batch size and optional width/height (node 23 EmptyLatentImage)
+  if (workflow["23"]) {
+    const inputs23 = { ...workflow["23"].inputs };
+    if (options.batchSize != null) inputs23.batch_size = options.batchSize;
+    if (options.width != null) inputs23.width = options.width;
+    if (options.height != null) inputs23.height = options.height;
     workflow["23"] = {
       ...workflow["23"],
-      inputs: {
-        ...workflow["23"].inputs,
-        batch_size: options.batchSize,
-      },
+      inputs: inputs23,
     };
   }
 
