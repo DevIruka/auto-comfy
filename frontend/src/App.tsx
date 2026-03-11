@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import BatchProcessor from "./components/BatchProcessor";
-import EmotionBatchProcessor from "./components/EmotionBatchProcessor";
 import ImageBatchProcessor from "./components/ImageBatchProcessor";
 import BannerProcessor from "./components/BannerProcessor";
 import EmotionPipeline from "./components/EmotionPipeline";
@@ -111,7 +110,7 @@ function PodManager() {
 
 function App() {
   const [activeTab, setActiveTab] = useState<
-    "batch" | "emotion" | "imageBatch" | "banner" | "emotionPipeline"
+    "batch" | "imageBatch" | "banner" | "emotionPipeline"
   >("imageBatch");
 
   return (
@@ -137,12 +136,6 @@ function App() {
             성인용 영상 자동화
           </button>
           <button
-            className={`nav-tab ${activeTab === "emotion" ? "active" : ""}`}
-            onClick={() => setActiveTab("emotion")}
-          >
-            idle/speaknatural 자동화
-          </button>
-          <button
             className={`nav-tab ${activeTab === "emotionPipeline" ? "active" : ""}`}
             onClick={() => setActiveTab("emotionPipeline")}
           >
@@ -156,7 +149,6 @@ function App() {
         {activeTab === "imageBatch" && <ImageBatchProcessor />}
         {activeTab === "banner" && <BannerProcessor />}
         {activeTab === "batch" && <BatchProcessor />}
-        {activeTab === "emotion" && <EmotionBatchProcessor />}
         {activeTab === "emotionPipeline" && <EmotionPipeline />}
       </main>
     </div>

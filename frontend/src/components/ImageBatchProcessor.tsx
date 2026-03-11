@@ -129,15 +129,18 @@ export default function ImageBatchProcessor() {
       .getPoses()
       .then((poses) => {
         setPoseRows(
-          poses.map((p: PoseInfo) => ({
-            name: p.name,
-            selected: true,
-            expression: p.expressions.includes("Normal")
-              ? "Normal"
-              : p.expressions[0],
-            availableExpressions: p.expressions,
-            handFix: false,
-          })),
+          poses.map((p: PoseInfo) => {
+            const defaultHandFix = ["CumInMouth", "CumInMouth2", "CumInMouth3", "Handjob", "Masturbation"].includes(p.name);
+            return {
+              name: p.name,
+              selected: true,
+              expression: p.expressions.includes("Normal")
+                ? "Normal"
+                : p.expressions[0],
+              availableExpressions: p.expressions,
+              handFix: defaultHandFix,
+            };
+          }),
         );
       })
       .catch(console.error);

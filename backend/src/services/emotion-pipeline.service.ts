@@ -144,7 +144,7 @@ async function loadEmotionConfig(): Promise<EmotionConfig> {
 
 /**
  * Scan folder for image paths. If useOriginSubfolder, scan the "원본" subfolder when present.
- * Only includes files whose filename contains "원본".
+ * Includes all image files in the target directory.
  */
 async function scanImagePaths(folderPath: string, useOriginSubfolder: boolean): Promise<string[]> {
   let dir = folderPath;
@@ -161,7 +161,6 @@ async function scanImagePaths(folderPath: string, useOriginSubfolder: boolean): 
   const files: string[] = [];
   for (const e of entries) {
     if (!e.isFile()) continue;
-    if (!e.name.includes("원본")) continue;
     const ext = extname(e.name).toLowerCase();
     if (IMAGE_EXT.has(ext)) files.push(join(dir, e.name));
   }
