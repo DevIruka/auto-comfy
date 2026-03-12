@@ -66,6 +66,8 @@ export default function EmotionPipeline() {
   const [loadingLoras, setLoadingLoras] = useState(false);
   const [upscaleSeedCount, setUpscaleSeedCount] = useState(3);
   const [useOriginSubfolder, setUseOriginSubfolder] = useState(true);
+  const [videoPrefixPrompt, setVideoPrefixPrompt] = useState("");
+  const [showVideoPrompt, setShowVideoPrompt] = useState(false);
   const [queueState, setQueueState] = useState<QueueState | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -148,6 +150,7 @@ export default function EmotionPipeline() {
       ...(preset.backgroundPositive !== undefined && { background: preset.backgroundPositive }),
       ...(preset.negativeExtra !== undefined && { negativeExtra: preset.negativeExtra }),
     }));
+    if (preset.prefixPrompt !== undefined) setVideoPrefixPrompt(preset.prefixPrompt);
     if (preset.loraSlots?.length) {
       setLoraSlots(preset.loraSlots.map((s) => ({
         enabled: s.enabled,
@@ -163,6 +166,7 @@ export default function EmotionPipeline() {
     pose: promptBlocks.pose,
     backgroundPositive: promptBlocks.background,
     negativeExtra: promptBlocks.negativeExtra,
+    prefixPrompt: videoPrefixPrompt,
     loraSlots: loraSlots.map((s) => ({
       enabled: s.enabled,
       loraName: s.loraName,
@@ -246,6 +250,23 @@ export default function EmotionPipeline() {
       </header>
 
       <PresetPicker onLoad={handlePresetLoad} getCurrentSettings={getCurrentSettingsForPreset} />
+      <div className="video-prompt-for-preset">
+        <button
+          className="video-prompt-toggle"
+          onClick={() => setShowVideoPrompt(!showVideoPrompt)}
+        >
+          {showVideoPrompt ? "▼" : "▶"} 영상용 자연어 프롬프트 (프리셋 저장용)
+        </button>
+        {showVideoPrompt && (
+          <textarea
+            className="video-prompt-textarea"
+            value={videoPrefixPrompt}
+            onChange={(e) => setVideoPrefixPrompt(e.target.value)}
+            rows={2}
+            placeholder="영상 자동화에서 쓸 접두 프롬프트를 여기에 입력하면 프리셋에 함께 저장됩니다"
+          />
+        )}
+      </div>
 
       <div className="emotion-pipeline-card">
         <div className="form-group">

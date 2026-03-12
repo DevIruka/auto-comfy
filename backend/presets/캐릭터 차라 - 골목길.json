@@ -1,0 +1,39 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  "styleTrigger": "masterpiece, best quality, absurdres,",
+  "character": "1girl, solo,\n\nmessy brown hair, slightly uneven bangs,\nred eyes, pale skin,big breast,closed mouth",
+  "outfit": "nude, completely nude, fully nude, naked, completely naked, fully naked, no clothes, bare body, nude body, naked body, bare skin, exposed body, all nude, totally nude, no clothing, undressed, unclothed,",
+  "backgroundPositive": "quiet back alley in daytime,\nnarrow alleyway,\nurban backstreet,\nbrick walls, old buildings,\ntrash bins, graffiti,\nempty alley, no people,\nsoft daylight with shadows,\nslightly eerie atmosphere,\ndeserted street, quiet environment",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": ",",
+  "prefixPrompt": "A beautiful anime woman with red eyes, brown hair, large breast, ",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "chara.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "캐릭터 차라 - 골목길",
+  "updatedAt": "2026-03-12T06:59:37.929Z"
+}

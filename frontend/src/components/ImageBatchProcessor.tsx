@@ -103,6 +103,10 @@ export default function ImageBatchProcessor() {
   const [defaultExpression, setDefaultExpression] = useState("Normal");
   const [allSelected, setAllSelected] = useState(true);
 
+  // Video prefix prompt (preset storage only, not used for image generation)
+  const [videoPrefixPrompt, setVideoPrefixPrompt] = useState("");
+  const [showVideoPrompt, setShowVideoPrompt] = useState(false);
+
   // Preset outfit mode: load from preset or force nude
   const [presetOutfitMode, setPresetOutfitMode] = useState<"preset" | "nude">("nude");
 
@@ -254,6 +258,7 @@ export default function ImageBatchProcessor() {
     if (preset.fixedSuffix !== undefined) setFixedSuffix(preset.fixedSuffix);
     if (preset.fixedNegative !== undefined) setFixedNegative(preset.fixedNegative);
     if (preset.backgroundNegative !== undefined) setBackgroundNegative(preset.backgroundNegative);
+    if (preset.prefixPrompt !== undefined) setVideoPrefixPrompt(preset.prefixPrompt);
     if (preset.loraSlots?.length) {
       setLoraSlots(preset.loraSlots.map((s) => ({
         enabled: s.enabled,
@@ -273,6 +278,7 @@ export default function ImageBatchProcessor() {
     fixedSuffix,
     fixedNegative,
     backgroundNegative,
+    prefixPrompt: videoPrefixPrompt,
     loraSlots: loraSlots.map((s) => ({
       enabled: s.enabled,
       loraName: s.loraName,
@@ -387,6 +393,23 @@ export default function ImageBatchProcessor() {
             />
             프리셋 의상 그대로
           </label>
+        </div>
+        <div className="video-prompt-for-preset">
+          <button
+            className="video-prompt-toggle"
+            onClick={() => setShowVideoPrompt(!showVideoPrompt)}
+          >
+            {showVideoPrompt ? "▼" : "▶"} 영상용 자연어 프롬프트 (프리셋 저장용)
+          </button>
+          {showVideoPrompt && (
+            <textarea
+              className="video-prompt-textarea"
+              value={videoPrefixPrompt}
+              onChange={(e) => setVideoPrefixPrompt(e.target.value)}
+              rows={2}
+              placeholder="영상 자동화에서 쓸 접두 프롬프트를 여기에 입력하면 프리셋에 함께 저장됩니다"
+            />
+          )}
         </div>
       </div>
 

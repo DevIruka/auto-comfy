@@ -454,6 +454,47 @@
   accent-color: #f59e0b;
 }
 
+.video-prompt-for-preset {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #f0f4ff;
+  border: 1px dashed #93a3d1;
+  border-radius: 6px;
+}
+
+.video-prompt-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #4b5ea6;
+  padding: 0;
+  margin-bottom: 0.3rem;
+}
+
+.video-prompt-toggle:hover {
+  color: #3a4d8a;
+}
+
+.video-prompt-textarea {
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.85rem;
+  border: 1px solid #c5cfe0;
+  border-radius: 4px;
+  resize: vertical;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.video-prompt-textarea:focus {
+  border-color: #6b7ec5;
+  color: #000;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(107, 126, 197, 0.2);
+}
+
 /* Face Mask Tool */
 .facemask-tool {
   padding: 1.5rem;

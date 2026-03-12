@@ -74,6 +74,8 @@ export default function BannerProcessor() {
   const [fixedSuffix, setFixedSuffix] = useState(DEFAULT_FIXED_SUFFIX);
   const [fixedNegative, setFixedNegative] = useState(DEFAULT_FIXED_NEGATIVE);
   const [backgroundNegative, setBackgroundNegative] = useState("");
+  const [videoPrefixPrompt, setVideoPrefixPrompt] = useState("");
+  const [showVideoPrompt, setShowVideoPrompt] = useState(false);
 
   const [batchSize, setBatchSize] = useState(4);
   const [runsPerCombo, setRunsPerCombo] = useState(3);
@@ -174,6 +176,7 @@ export default function BannerProcessor() {
     if (preset.fixedSuffix !== undefined) setFixedSuffix(preset.fixedSuffix);
     if (preset.fixedNegative !== undefined) setFixedNegative(preset.fixedNegative);
     if (preset.backgroundNegative !== undefined) setBackgroundNegative(preset.backgroundNegative);
+    if (preset.prefixPrompt !== undefined) setVideoPrefixPrompt(preset.prefixPrompt);
     if (preset.loraSlots?.length) {
       setLoraSlots(preset.loraSlots.map((s) => ({
         enabled: s.enabled,
@@ -193,6 +196,7 @@ export default function BannerProcessor() {
     fixedSuffix,
     fixedNegative,
     backgroundNegative,
+    prefixPrompt: videoPrefixPrompt,
     loraSlots: loraSlots.map((s) => ({
       enabled: s.enabled,
       loraName: s.loraName,
@@ -273,6 +277,23 @@ export default function BannerProcessor() {
       </header>
 
       <PresetPicker onLoad={handlePresetLoad} getCurrentSettings={getCurrentSettingsForPreset} />
+      <div className="video-prompt-for-preset">
+        <button
+          className="video-prompt-toggle"
+          onClick={() => setShowVideoPrompt(!showVideoPrompt)}
+        >
+          {showVideoPrompt ? "▼" : "▶"} 영상용 자연어 프롬프트 (프리셋 저장용)
+        </button>
+        {showVideoPrompt && (
+          <textarea
+            className="video-prompt-textarea"
+            value={videoPrefixPrompt}
+            onChange={(e) => setVideoPrefixPrompt(e.target.value)}
+            rows={2}
+            placeholder="영상 자동화에서 쓸 접두 프롬프트를 여기에 입력하면 프리셋에 함께 저장됩니다"
+          />
+        )}
+      </div>
 
       <div className="ib-layout">
         <div className="ib-settings">
