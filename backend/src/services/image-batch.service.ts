@@ -1,5 +1,5 @@
 import { readFileSync } from "fs";
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, writeFile, readdir, copyFile } from "fs/promises";
 import { join } from "path";
 import { v4 as uuidv4 } from "uuid";
 import { comfyManager } from "./comfy-manager.service.js";
@@ -342,6 +342,22 @@ class ImageBatchService {
 
             job.completedTasks++;
             this.broadcast(jobId);
+          }
+        }
+
+        if (pose.poseName === "Masturbation") {
+          try {
+            const srcDir = join(params.outputPath, "Masturbation");
+            const destDir = join(params.outputPath, "Cunnilingus");
+            await mkdir(destDir, { recursive: true });
+            const files = await readdir(srcDir);
+            for (const file of files) {
+              await copyFile(join(srcDir, file), join(destDir, file));
+            }
+            this.addLog(jobId, `📋 Masturbation → Cunnilingus: ${files.length} files copied`);
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.addLog(jobId, `⚠️ Failed to copy Masturbation → Cunnilingus: ${msg}`);
           }
         }
       }
