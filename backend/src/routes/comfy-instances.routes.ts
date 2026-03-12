@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { comfyManager } from "../services/comfy-manager.service.js";
+import { instanceQueueManager } from "../services/instance-queue-manager.service.js";
 import { asyncHandler } from "../middleware/errorHandler.js";
 
 const comfyInstancesRouter = Router();
@@ -18,6 +19,110 @@ comfyInstancesRouter.get(
       instances,
       count: instances.length,
     });
+  })
+);
+
+/**
+ * GET /api/comfy-instances/dashboard
+ * Returns all instances + their queue status (running/pending jobs)
+ */
+comfyInstancesRouter.get(
+  "/dashboard",
+  asyncHandler(async (_req: Request, res: Response) => {
+    const instances = comfyManager.getAllInstances();
+    const queueStatus = instanceQueueManager.getAllStatus();
+
+    const dashboard = instances.map((inst) => {
+      const status = queueStatus[inst.id] ?? { running: null, pending: [] };
+      return {
+        ...inst,
+        running: status.running
+          ? {
+              entryId: status.running.entryId,
+              jobId: status.running.jobId,
+              serviceType: status.running.serviceType,
+              label: status.running.label,
+              createdAt: status.running.createdAt,
+            }
+          : null,
+        pending: status.pending.map((e) => ({
+          entryId: e.entryId,
+          jobId: e.jobId,
+          serviceType: e.serviceType,
+          label: e.label,
+          createdAt: e.createdAt,
+        })),
+      };
+    });
+
+    res.json({ success: true, dashboard });
+  })
+);
+
+/**
+ * POST /api/comfy-instances/dashboard/cancel/:entryId
+ * Cancel a pending queue entry by entryId
+ */
+comfyInstancesRouter.post(
+  "/dashboard/cancel/:entryId",
+  asyncHandler(async (req: Request, res: Response) => {
+    const { entryId } = req.params;
+    const removed = instanceQueueManager.cancel(entryId);
+    if (!removed) {
+      return res.status(404).json({ success: false, error: "Entry not found or already running" });
+    }
+    res.json({ success: true });
+  })
+);
+
+/**
+ * POST /api/comfy-instances/dashboard/stop
+ * Stop a running job by serviceType + jobId (delegates to the correct service)
+ */
+comfyInstancesRouter.post(
+  "/dashboard/stop",
+  asyncHandler(async (req: Request, res: Response) => {
+    const { serviceType, jobId } = req.body as { serviceType?: string; jobId?: string };
+    if (!serviceType || !jobId) {
+      return res.status(400).json({ success: false, error: "serviceType and jobId are required" });
+    }
+
+    let stopped = false;
+    switch (serviceType) {
+      case "image-batch": {
+        const { imageBatchService } = await import("../services/image-batch.service.js");
+        imageBatchService.stopJob(jobId);
+        stopped = true;
+        break;
+      }
+      case "banner-batch": {
+        const { bannerBatchService } = await import("../services/banner-batch.service.js");
+        bannerBatchService.stopJob(jobId);
+        stopped = true;
+        break;
+      }
+      case "batch": {
+        const { batchService } = await import("../services/batch.service.js");
+        await batchService.stopBatch(jobId);
+        stopped = true;
+        break;
+      }
+      case "emotion-batch": {
+        const { emotionBatchService } = await import("../services/emotion-batch.service.js");
+        emotionBatchService.stopBatch(jobId);
+        stopped = true;
+        break;
+      }
+      case "emotion-pipeline": {
+        const { stopEmotionPipelineJob } = await import("../services/emotion-pipeline.service.js");
+        stopped = stopEmotionPipelineJob(jobId);
+        break;
+      }
+      default:
+        return res.status(400).json({ success: false, error: `Unknown serviceType: ${serviceType}` });
+    }
+
+    res.json({ success: true, stopped });
   })
 );
 

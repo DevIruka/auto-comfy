@@ -7,6 +7,7 @@ import { comfyManager } from "./comfy-manager.service.js";
 import { createWanWorkflow } from "../utils/workflow-helpers.js";
 import { runPodService } from "./runpod.service.js";
 import { podUsageTracker } from "./pod-usage-tracker.service.js";
+import { instanceQueueManager } from "./instance-queue-manager.service.js";
 
 // Fixed seeds for batch processing
 const FIXED_SEEDS = [625130800946143, 625130800946142, 625130800946144];
@@ -57,9 +58,6 @@ class BatchService {
   private isStopped: Map<string, boolean> = new Map();
   private poseConfig: PoseConfig = {};
   private broadcastCallback?: (jobId: string, data: any) => void;
-  /** 한 인스턴스에서 동시에 하나의 작업만 실행 (포트별 직렬화) */
-  private runningJobByInstance: Map<string, string> = new Map();
-  private instanceQueue: Map<string, string[]> = new Map();
 
   constructor() {
     this.loadPoseConfig();
@@ -201,20 +199,7 @@ class BatchService {
   }
 
   /**
-   * Release instance slot and start next job in queue for that instance
-   */
-  private releaseInstanceAndStartNext(instanceId: string): void {
-    this.runningJobByInstance.delete(instanceId);
-    const q = this.instanceQueue.get(instanceId);
-    if (q && q.length > 0) {
-      const nextJobId = q.shift()!;
-      this.instanceQueue.set(instanceId, q);
-      void this.startBatch(nextJobId);
-    }
-  }
-
-  /**
-   * Start batch processing (per-instance queue: only one job per port at a time)
+   * Start batch processing via the unified queue manager
    */
   async startBatch(jobId: string): Promise<void> {
     const job = this.jobs.get(jobId);
@@ -226,16 +211,19 @@ class BatchService {
       throw new Error(`Job ${jobId} is already running`);
     }
 
-    const instanceId = job.comfyInstanceId;
-    if (this.runningJobByInstance.get(instanceId)) {
-      const q = this.instanceQueue.get(instanceId) ?? [];
-      q.push(jobId);
-      this.instanceQueue.set(instanceId, q);
-      this.addLog(jobId, `Queued for instance ${instanceId} (${q.length} ahead)`);
-      return;
-    }
+    instanceQueueManager.enqueue({
+      jobId,
+      serviceType: "batch",
+      label: `Video batch: ${job.totalImages} images`,
+      instanceId: job.comfyInstanceId,
+      onStart: () => this.runBatchJob(jobId),
+    });
+  }
 
-    this.runningJobByInstance.set(instanceId, jobId);
+  private async runBatchJob(jobId: string): Promise<void> {
+    const job = this.jobs.get(jobId);
+    if (!job) return;
+
     job.status = "running";
     this.addLog(jobId, "Starting batch processing");
 
@@ -245,19 +233,17 @@ class BatchService {
       podUsageTracker.acquire(podId);
     }
 
-    this.processBatch(jobId)
-      .catch((error) => {
-        console.error(`❌ Batch job ${jobId} failed:`, error);
-        job.status = "failed";
-        job.error = error.message;
-        this.addLog(jobId, `Failed: ${error.message}`);
-        if (podId && job.autoStopPod) {
-          podUsageTracker.release(podId);
-        }
-      })
-      .finally(() => {
-        this.releaseInstanceAndStartNext(instanceId);
-      });
+    try {
+      await this.processBatch(jobId);
+    } catch (error: any) {
+      console.error(`Batch job ${jobId} failed:`, error);
+      job.status = "failed";
+      job.error = error.message;
+      this.addLog(jobId, `Failed: ${error.message}`);
+      if (podId && job.autoStopPod) {
+        podUsageTracker.release(podId);
+      }
+    }
   }
 
   /**

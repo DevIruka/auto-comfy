@@ -4,6 +4,7 @@ import { spawn } from "child_process";
 import { v4 as uuidv4 } from "uuid";
 import { createSdxlWaiWorkflow, createSdxlWaiHiresWorkflow, HIRES_SAVE_NODE_ID, type SdxlWaiPromptBlocks, type SdxlWaiLoraSlot } from "../utils/workflow-helpers.js";
 import { comfyManager } from "./comfy-manager.service.js";
+import { instanceQueueManager } from "./instance-queue-manager.service.js";
 
 export type { SdxlWaiPromptBlocks, SdxlWaiLoraSlot };
 
@@ -41,10 +42,6 @@ export interface EmotionPipelineJob {
 const jobs = new Map<string, EmotionPipelineJob>();
 const jobParams = new Map<string, EmotionPipelineParams>();
 const stopRequested = new Map<string, boolean>();
-/** Queue per ComfyUI instance: different ports run in parallel. */
-const jobQueueByInstance = new Map<string, string[]>();
-/** Current running job per instance (one at a time per port). */
-const currentJobByInstance = new Map<string, string>();
 
 /** Global lock: only one masking run at a time so facemask/input+output are not overwritten; next job waits until current masking finishes. */
 let maskingLockPromise: Promise<void> = Promise.resolve();
@@ -87,41 +84,6 @@ function setStep(jobId: string, current: number, total: number) {
   }
 }
 
-function processQueue(): void {
-  const instanceIds = new Set<string>([
-    ...jobQueueByInstance.keys(),
-    ...currentJobByInstance.keys(),
-  ]);
-  for (const instanceId of instanceIds) {
-    if (currentJobByInstance.get(instanceId) != null) continue;
-    const queue = jobQueueByInstance.get(instanceId);
-    if (!queue?.length) continue;
-
-    const nextId = queue.shift()!;
-    const params = jobParams.get(nextId);
-    if (!params) {
-      processQueue();
-      return;
-    }
-    currentJobByInstance.set(instanceId, nextId);
-    const job = jobs.get(nextId);
-    if (job) job.status = "running";
-
-    startEmotionPipeline(nextId, params)
-      .finally(() => {
-        currentJobByInstance.delete(instanceId);
-        processQueue();
-      })
-      .catch((err) => {
-        console.error(`[EmotionPipeline ${nextId}] Unhandled error:`, err);
-        const j = jobs.get(nextId);
-        if (j) {
-          j.status = "failed";
-          j.error = err?.message ?? String(err);
-        }
-      });
-  }
-}
 
 /**
  * Load emotion prompts from img-emotion-config.json (project root or cwd)
@@ -501,10 +463,7 @@ export function stopEmotionPipelineJob(jobId: string): boolean {
   if (job.status === "pending") {
     job.status = "stopped";
     addLog(jobId, "Job stopped (was pending).");
-    for (const [, queue] of jobQueueByInstance) {
-      const idx = queue.indexOf(jobId);
-      if (idx !== -1) queue.splice(idx, 1);
-    }
+    instanceQueueManager.cancelByJobId(jobId);
   }
   return true;
 }
@@ -520,12 +479,12 @@ export function getEmotionPipelineQueueState(): {
     const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
     return tB - tA;
   });
-  const queue = Array.from(jobQueueByInstance.values()).flat();
-  const currentJobIds = Array.from(currentJobByInstance.values()).filter(Boolean);
+  const pendingJobs = jobList.filter((j) => j.status === "pending").map((j) => j.jobId);
+  const runningJobs = jobList.filter((j) => j.status === "running").map((j) => j.jobId);
   return {
-    queue,
-    currentJobId: currentJobIds[0] ?? null,
-    currentJobIds,
+    queue: pendingJobs,
+    currentJobId: runningJobs[0] ?? null,
+    currentJobIds: runningJobs,
     jobs: jobList,
   };
 }
@@ -546,11 +505,15 @@ export function createEmotionPipelineJob(params: EmotionPipelineParams): string 
   jobs.set(jobId, job);
   jobParams.set(jobId, params);
 
-  const instanceId = params.comfyInstanceId;
-  if (!jobQueueByInstance.has(instanceId)) {
-    jobQueueByInstance.set(instanceId, []);
-  }
-  jobQueueByInstance.get(instanceId)!.push(jobId);
-  processQueue();
+  instanceQueueManager.enqueue({
+    jobId,
+    serviceType: "emotion-pipeline",
+    label: `Emotion pipeline: inpaint+upscale`,
+    instanceId: params.comfyInstanceId,
+    onStart: async () => {
+      job.status = "running";
+      await startEmotionPipeline(jobId, params);
+    },
+  });
   return jobId;
 }

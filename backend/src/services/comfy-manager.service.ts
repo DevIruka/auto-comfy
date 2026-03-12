@@ -1,5 +1,6 @@
 import { ComfyService } from "./comfy.service.js";
 import { runPodService } from "./runpod.service.js";
+import { instanceQueueManager } from "./instance-queue-manager.service.js";
 
 export interface ComfyInstance {
   id: string;
@@ -145,6 +146,7 @@ class ComfyManagerService {
     }
     this.instances.delete(instanceId);
     this.instanceInfo.delete(instanceId);
+    instanceQueueManager.removeInstance(instanceId);
     console.log(`🗑️ Removed ComfyUI instance: ${instanceId}`);
   }
 }

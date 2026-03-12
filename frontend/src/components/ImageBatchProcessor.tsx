@@ -10,6 +10,8 @@ import {
   type ImageBatchJobStatus,
   type ImageBatchQueueState,
 } from "../api/image-batch-client";
+import PresetPicker from "./PresetPicker";
+import type { CharacterPreset } from "../api/presets-client";
 import "./ImageBatchProcessor.css";
 
 interface LoraSlot {
@@ -47,6 +49,8 @@ const DEFAULT_FIXED_SUFFIX =
   "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres";
 const DEFAULT_FIXED_NEGATIVE =
   "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome";
+const DEFAULT_NUDE_SUFFIX = 
+"nude, completely nude, fully nude, naked, completely naked, fully naked, no clothes, bare body, nude body, naked body, bare skin, exposed body, all nude, totally nude, no clothing, undressed, unclothed,"
 
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3002/ws";
 
@@ -84,7 +88,7 @@ export default function ImageBatchProcessor() {
   const [fixedPrefix, setFixedPrefix] = useState(DEFAULT_FIXED_PREFIX);
   const [styleTrigger, setStyleTrigger] = useState("");
   const [character, setCharacter] = useState("");
-  const [outfit, setOutfit] = useState("");
+  const [outfit, setOutfit] = useState(DEFAULT_NUDE_SUFFIX);
   const [backgroundPositive, setBackgroundPositive] = useState("");
   const [fixedSuffix, setFixedSuffix] = useState(DEFAULT_FIXED_SUFFIX);
   const [fixedNegative, setFixedNegative] = useState(DEFAULT_FIXED_NEGATIVE);
@@ -98,6 +102,9 @@ export default function ImageBatchProcessor() {
   const [poseRows, setPoseRows] = useState<PoseRow[]>([]);
   const [defaultExpression, setDefaultExpression] = useState("Normal");
   const [allSelected, setAllSelected] = useState(true);
+
+  // Preset outfit mode: load from preset or force nude
+  const [presetOutfitMode, setPresetOutfitMode] = useState<"preset" | "nude">("nude");
 
   // Batch size + output (포즈당 3회 완전 랜덤 시드)
   const [batchSize, setBatchSize] = useState(4);
@@ -234,6 +241,46 @@ export default function ImageBatchProcessor() {
   );
   const estimatedMinutes = Math.ceil((totalTasks * 60) / 60);
 
+  const handlePresetLoad = (preset: CharacterPreset) => {
+    if (preset.fixedPrefix !== undefined) setFixedPrefix(preset.fixedPrefix);
+    if (preset.styleTrigger !== undefined) setStyleTrigger(preset.styleTrigger);
+    if (preset.character !== undefined) setCharacter(preset.character);
+    if (presetOutfitMode === "nude") {
+      setOutfit(DEFAULT_NUDE_SUFFIX);
+    } else if (preset.outfit !== undefined) {
+      setOutfit(preset.outfit);
+    }
+    if (preset.backgroundPositive !== undefined) setBackgroundPositive(preset.backgroundPositive);
+    if (preset.fixedSuffix !== undefined) setFixedSuffix(preset.fixedSuffix);
+    if (preset.fixedNegative !== undefined) setFixedNegative(preset.fixedNegative);
+    if (preset.backgroundNegative !== undefined) setBackgroundNegative(preset.backgroundNegative);
+    if (preset.loraSlots?.length) {
+      setLoraSlots(preset.loraSlots.map((s) => ({
+        enabled: s.enabled,
+        loraName: s.loraName,
+        strengthModel: s.strengthModel,
+        strengthClip: s.strengthClip,
+      })));
+    }
+  };
+
+  const getCurrentSettingsForPreset = () => ({
+    fixedPrefix,
+    styleTrigger,
+    character,
+    outfit,
+    backgroundPositive,
+    fixedSuffix,
+    fixedNegative,
+    backgroundNegative,
+    loraSlots: loraSlots.map((s) => ({
+      enabled: s.enabled,
+      loraName: s.loraName,
+      strengthModel: s.strengthModel,
+      strengthClip: s.strengthClip,
+    })),
+  });
+
   const resetFormForNextJob = () => {
     setFixedPrefix(DEFAULT_FIXED_PREFIX);
     setStyleTrigger("");
@@ -317,6 +364,31 @@ export default function ImageBatchProcessor() {
         <h1>Image Batch Generation</h1>
         <p>pose config + prompt blocks + auto generation</p>
       </header>
+
+      <div className="preset-with-outfit-mode">
+        <PresetPicker onLoad={handlePresetLoad} getCurrentSettings={getCurrentSettingsForPreset} />
+        <div className="preset-outfit-mode">
+          <span className="preset-outfit-label">불러오기 시 의상:</span>
+          <label className="preset-outfit-radio">
+            <input
+              type="radio"
+              name="outfitMode"
+              checked={presetOutfitMode === "nude"}
+              onChange={() => setPresetOutfitMode("nude")}
+            />
+            Nude
+          </label>
+          <label className="preset-outfit-radio">
+            <input
+              type="radio"
+              name="outfitMode"
+              checked={presetOutfitMode === "preset"}
+              onChange={() => setPresetOutfitMode("preset")}
+            />
+            프리셋 의상 그대로
+          </label>
+        </div>
+      </div>
 
       <div className="ib-layout">
         {/* Left Panel: Settings */}

@@ -15,6 +15,7 @@ import {
 } from "../utils/emotion-helpers.js";
 import { runPodService } from "./runpod.service.js";
 import { podUsageTracker } from "./pod-usage-tracker.service.js";
+import { instanceQueueManager } from "./instance-queue-manager.service.js";
 
 // Fixed seeds for batch processing (same as pose batch)
 const FIXED_SEEDS = [625130800946143, 625130800946142, 625130800946144];
@@ -74,9 +75,6 @@ class EmotionBatchService {
   private isStopped: Map<string, boolean> = new Map();
   private emotionConfig: EmotionConfig = {};
   private broadcastCallback?: (jobId: string, data: any) => void;
-  /** 한 인스턴스에서 동시에 하나의 작업만 실행 (포트별 직렬화) */
-  private runningJobByInstance: Map<string, string> = new Map();
-  private instanceQueue: Map<string, string[]> = new Map();
 
   constructor() {
     this.loadEmotionConfig();
@@ -276,20 +274,7 @@ class EmotionBatchService {
   }
 
   /**
-   * Release instance slot and start next job in queue for that instance
-   */
-  private releaseInstanceAndStartNext(instanceId: string): void {
-    this.runningJobByInstance.delete(instanceId);
-    const q = this.instanceQueue.get(instanceId);
-    if (q && q.length > 0) {
-      const nextJobId = q.shift()!;
-      this.instanceQueue.set(instanceId, q);
-      void this.startBatch(nextJobId);
-    }
-  }
-
-  /**
-   * Start batch processing (per-instance queue: only one job per port at a time)
+   * Start batch processing via the unified queue manager
    */
   async startBatch(jobId: string): Promise<void> {
     const job = this.jobs.get(jobId);
@@ -301,16 +286,19 @@ class EmotionBatchService {
       throw new Error(`Job ${jobId} is already running`);
     }
 
-    const instanceId = job.comfyInstanceId;
-    if (this.runningJobByInstance.get(instanceId)) {
-      const q = this.instanceQueue.get(instanceId) ?? [];
-      q.push(jobId);
-      this.instanceQueue.set(instanceId, q);
-      this.addLog(jobId, `Queued for instance ${instanceId} (${q.length} ahead)`);
-      return;
-    }
+    instanceQueueManager.enqueue({
+      jobId,
+      serviceType: "emotion-batch",
+      label: `Emotion video batch: ${job.totalImages} images`,
+      instanceId: job.comfyInstanceId,
+      onStart: () => this.runBatchJob(jobId),
+    });
+  }
 
-    this.runningJobByInstance.set(instanceId, jobId);
+  private async runBatchJob(jobId: string): Promise<void> {
+    const job = this.jobs.get(jobId);
+    if (!job) return;
+
     job.status = "running";
     this.addLog(jobId, "Starting emotion batch processing");
 
@@ -320,19 +308,17 @@ class EmotionBatchService {
       podUsageTracker.acquire(podId);
     }
 
-    this.processBatch(jobId)
-      .catch((error) => {
-        console.error(`Error in batch ${jobId}:`, error);
-        job.status = "failed";
-        job.error = error.message;
-        this.addLog(jobId, `Batch failed: ${error.message}`);
-        if (podId && job.autoStopPod) {
-          podUsageTracker.release(podId);
-        }
-      })
-      .finally(() => {
-        this.releaseInstanceAndStartNext(instanceId);
-      });
+    try {
+      await this.processBatch(jobId);
+    } catch (error: any) {
+      console.error(`Error in batch ${jobId}:`, error);
+      job.status = "failed";
+      job.error = error.message;
+      this.addLog(jobId, `Batch failed: ${error.message}`);
+      if (podId && job.autoStopPod) {
+        podUsageTracker.release(podId);
+      }
+    }
   }
 
   /**
@@ -821,15 +807,7 @@ class EmotionBatchService {
     if (!job) return;
 
     if (job.status === "pending") {
-      const instanceId = job.comfyInstanceId;
-      const q = this.instanceQueue.get(instanceId);
-      if (q) {
-        const idx = q.indexOf(jobId);
-        if (idx !== -1) {
-          q.splice(idx, 1);
-          this.instanceQueue.set(instanceId, q);
-        }
-      }
+      instanceQueueManager.cancelByJobId(jobId);
     }
 
     this.isStopped.set(jobId, true);

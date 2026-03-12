@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { comfyClient, type ComfyInstanceInfo } from "../api/comfy-client";
+import PresetPicker from "./PresetPicker";
+import type { CharacterPreset } from "../api/presets-client";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3002";
 
@@ -138,6 +140,37 @@ export default function EmotionPipeline() {
     }
   }, [selectedJobId, selectedJob?.status]);
 
+  const handlePresetLoad = (preset: CharacterPreset) => {
+    setPromptBlocks((prev) => ({
+      ...prev,
+      ...(preset.character !== undefined && { character: preset.character }),
+      ...(preset.pose !== undefined && { pose: preset.pose }),
+      ...(preset.backgroundPositive !== undefined && { background: preset.backgroundPositive }),
+      ...(preset.negativeExtra !== undefined && { negativeExtra: preset.negativeExtra }),
+    }));
+    if (preset.loraSlots?.length) {
+      setLoraSlots(preset.loraSlots.map((s) => ({
+        enabled: s.enabled,
+        loraName: s.loraName,
+        strengthModel: s.strengthModel,
+        strengthClip: s.strengthClip,
+      })));
+    }
+  };
+
+  const getCurrentSettingsForPreset = () => ({
+    character: promptBlocks.character,
+    pose: promptBlocks.pose,
+    backgroundPositive: promptBlocks.background,
+    negativeExtra: promptBlocks.negativeExtra,
+    loraSlots: loraSlots.map((s) => ({
+      enabled: s.enabled,
+      loraName: s.loraName,
+      strengthModel: s.strengthModel,
+      strengthClip: s.strengthClip,
+    })),
+  });
+
   const handleStop = async (jobId: string) => {
     try {
       await fetch(`${API_BASE}/api/emotion-pipeline/${jobId}/stop`, { method: "POST" });
@@ -211,6 +244,8 @@ export default function EmotionPipeline() {
           서버에서 접근 가능한 폴더 경로를 입력하세요. 작업은 큐에 쌓이며 순서대로 실행됩니다.
         </p>
       </header>
+
+      <PresetPicker onLoad={handlePresetLoad} getCurrentSettings={getCurrentSettingsForPreset} />
 
       <div className="emotion-pipeline-card">
         <div className="form-group">

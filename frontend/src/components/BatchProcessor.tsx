@@ -7,6 +7,8 @@ import {
   groupInstancesByPod,
 } from "../api/comfy-client";
 import { useBatchProgress } from "../hooks/useBatchProgress";
+import PresetPicker from "./PresetPicker";
+import type { CharacterPreset } from "../api/presets-client";
 import "./BatchProcessor.css";
 
 interface FolderPair {
@@ -81,6 +83,12 @@ export default function BatchProcessor() {
     const interval = setInterval(fetchJobs, 5000);
     return () => clearInterval(interval);
   }, [hasRunningOrPending, fetchJobs]);
+
+  const handlePresetLoad = (preset: CharacterPreset) => {
+    if (preset.prefixPrompt !== undefined) setPrefixPrompt(preset.prefixPrompt);
+  };
+
+  const getCurrentSettingsForPreset = () => ({ prefixPrompt });
 
   const addLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -311,6 +319,7 @@ export default function BatchProcessor() {
       <header className="batch-header">
         <h1>🎬 Batch Video Generator</h1>
         <p>자동 배치 애니메이션 생성</p>
+        <PresetPicker onLoad={handlePresetLoad} getCurrentSettings={getCurrentSettingsForPreset} />
         <div className="connection-status">
           {isConnected ? (
             <span className="status-connected">🟢 연결됨</span>

@@ -6,8 +6,32 @@ import EmotionPipeline from "./components/EmotionPipeline";
 import { comfyClient, type ComfyInstanceInfo } from "./api/comfy-client";
 import "./App.css";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3002";
+
+interface DashboardEntry {
+  entryId: string;
+  jobId: string;
+  serviceType: string;
+  label: string;
+  createdAt: string;
+}
+
+interface DashboardInstance extends ComfyInstanceInfo {
+  running: DashboardEntry | null;
+  pending: DashboardEntry[];
+}
+
+const SERVICE_LABELS: Record<string, string> = {
+  "image-batch": "이미지",
+  "banner-batch": "배너",
+  batch: "영상",
+  "emotion-batch": "감정 영상",
+  "emotion-pipeline": "마스킹+인페인팅",
+};
+
 function PodManager() {
   const [instances, setInstances] = useState<ComfyInstanceInfo[]>([]);
+  const [dashboard, setDashboard] = useState<DashboardInstance[]>([]);
   const [open, setOpen] = useState(false);
   const [newUrl, setNewUrl] = useState("");
   const [newName, setNewName] = useState("");
@@ -21,7 +45,24 @@ function PodManager() {
     } catch { /* ignore */ }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  const fetchDashboard = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/comfy-instances/dashboard`);
+      const data = await res.json();
+      if (data.success) setDashboard(data.dashboard);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    fetchDashboard();
+  }, [refresh, fetchDashboard]);
+
+  useEffect(() => {
+    if (!open) return;
+    const t = setInterval(fetchDashboard, 5000);
+    return () => clearInterval(t);
+  }, [open, fetchDashboard]);
 
   const handleAdd = async () => {
     if (!newUrl.trim()) return;
@@ -32,6 +73,7 @@ function PodManager() {
       setNewUrl("");
       setNewName("");
       await refresh();
+      await fetchDashboard();
     } catch (e) {
       setError(e instanceof Error ? e.message : "추가 실패");
     } finally {
@@ -46,6 +88,7 @@ function PodManager() {
     try {
       await comfyClient.removeInstance(id);
       await refresh();
+      await fetchDashboard();
     } catch (e) {
       setError(e instanceof Error ? e.message : "삭제 실패");
     } finally {
@@ -53,33 +96,107 @@ function PodManager() {
     }
   };
 
+  const handleCancelEntry = async (entryId: string) => {
+    try {
+      await fetch(`${API_BASE}/api/comfy-instances/dashboard/cancel/${entryId}`, {
+        method: "POST",
+      });
+      await fetchDashboard();
+    } catch { /* ignore */ }
+  };
+
+  const handleStopJob = async (serviceType: string, jobId: string) => {
+    try {
+      await fetch(`${API_BASE}/api/comfy-instances/dashboard/stop`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serviceType, jobId }),
+      });
+      await fetchDashboard();
+    } catch { /* ignore */ }
+  };
+
+  const totalRunning = dashboard.filter((d) => d.running).length;
+  const totalPending = dashboard.reduce((sum, d) => sum + d.pending.length, 0);
+
   return (
     <div className="pod-manager">
       <button
         className="pod-manager-toggle"
         onClick={() => setOpen(!open)}
       >
-        Pod 관리 ({instances.length}개) {open ? "▲" : "▼"}
+        Pod Dashboard ({instances.length}개
+        {totalRunning > 0 && ` / 실행 ${totalRunning}`}
+        {totalPending > 0 && ` / 대기 ${totalPending}`}
+        ) {open ? "▲" : "▼"}
       </button>
       {open && (
         <div className="pod-manager-panel">
-          <div className="pod-list">
-            {instances.map((inst) => (
-              <div key={inst.id} className="pod-item">
-                <span className="pod-info">
-                  <strong>{inst.name}</strong> ({inst.id}) — {inst.url}
-                </span>
-                <button
-                  className="pod-remove-btn"
-                  onClick={() => handleRemove(inst.id)}
-                  disabled={busy}
-                  title="삭제"
-                >
-                  ✕
-                </button>
+          {/* Dashboard: per-instance queue status */}
+          <div className="dashboard-section">
+            {dashboard.map((inst) => (
+              <div
+                key={inst.id}
+                className={`dashboard-instance ${inst.running ? "active" : "idle"}`}
+              >
+                <div className="dashboard-instance-header">
+                  <span className="dashboard-instance-name">
+                    <strong>{inst.name}</strong> ({inst.id})
+                  </span>
+                  <span className="dashboard-instance-url">{inst.url}</span>
+                  <button
+                    className="pod-remove-btn"
+                    onClick={() => handleRemove(inst.id)}
+                    disabled={busy}
+                    title="삭제"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="dashboard-jobs">
+                  {inst.running ? (
+                    <div className="dashboard-job running">
+                      <span className="dashboard-job-badge running">Running</span>
+                      <span className="dashboard-job-type">
+                        {SERVICE_LABELS[inst.running.serviceType] ?? inst.running.serviceType}
+                      </span>
+                      <span className="dashboard-job-label">{inst.running.label}</span>
+                      <button
+                        className="dashboard-stop-btn"
+                        onClick={() =>
+                          handleStopJob(inst.running!.serviceType, inst.running!.jobId)
+                        }
+                      >
+                        정지
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="dashboard-job idle">
+                      <span className="dashboard-job-badge idle-badge">Idle</span>
+                      <span className="dashboard-job-label">대기 중</span>
+                    </div>
+                  )}
+                  {inst.pending.map((entry) => (
+                    <div key={entry.entryId} className="dashboard-job pending">
+                      <span className="dashboard-job-badge pending-badge">Pending</span>
+                      <span className="dashboard-job-type">
+                        {SERVICE_LABELS[entry.serviceType] ?? entry.serviceType}
+                      </span>
+                      <span className="dashboard-job-label">{entry.label}</span>
+                      <button
+                        className="dashboard-cancel-btn"
+                        onClick={() => handleCancelEntry(entry.entryId)}
+                      >
+                        취소
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
+
+          {/* Add new pod form */}
           <div className="pod-add-form">
             <input
               type="text"

@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { v4 as uuidv4 } from "uuid";
 import { comfyManager } from "./comfy-manager.service.js";
+import { instanceQueueManager } from "./instance-queue-manager.service.js";
 import {
   createImageGenWorkflow,
   type LoraSlotConfig,
@@ -75,10 +76,6 @@ class ImageBatchService {
   private jobParams: Map<string, ImageBatchJobParams> = new Map();
   private stopRequested: Map<string, boolean> = new Map();
   private broadcastCallback: BroadcastCallback | null = null;
-  /** Queue per ComfyUI instance: different ports run in parallel. */
-  private jobQueueByInstance = new Map<string, string[]>();
-  /** Current running job per instance (one at a time per port). */
-  private currentJobByInstance = new Map<string, string>();
 
   constructor() {
     this.loadConfig();
@@ -149,44 +146,17 @@ class ImageBatchService {
     jobs: ImageBatchJob[];
   } {
     const jobs = Array.from(this.jobs.values());
-    const queue = Array.from(this.jobQueueByInstance.values()).flat();
-    const currentJobIds = Array.from(this.currentJobByInstance.values()).filter(
-      Boolean,
-    );
+    const pendingJobs = jobs.filter((j) => j.status === "pending").map((j) => j.id);
+    const runningJobs = jobs.filter((j) => j.status === "running").map((j) => j.id);
     return {
-      queue,
-      currentJobId: currentJobIds[0] ?? null,
-      currentJobIds,
+      queue: pendingJobs,
+      currentJobId: runningJobs[0] ?? null,
+      currentJobIds: runningJobs,
       jobs: jobs.sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       ),
     };
-  }
-
-  private processQueue(): void {
-    const instanceIds = new Set<string>([
-      ...this.jobQueueByInstance.keys(),
-      ...this.currentJobByInstance.keys(),
-    ]);
-    for (const instanceId of instanceIds) {
-      if (this.currentJobByInstance.get(instanceId) != null) continue;
-      const queue = this.jobQueueByInstance.get(instanceId);
-      if (!queue?.length) continue;
-
-      const nextId = queue.shift()!;
-      this.jobQueueByInstance.set(instanceId, queue);
-      this.currentJobByInstance.set(instanceId, nextId);
-      this.broadcastQueueState();
-      this.startJob(nextId)
-        .finally(() => {
-          this.currentJobByInstance.delete(instanceId);
-          this.processQueue();
-        })
-        .catch((err) => {
-          console.error(`Image batch job ${nextId} error:`, err);
-        });
-    }
   }
 
   getJob(jobId: string): ImageBatchJob | undefined {
@@ -215,13 +185,14 @@ class ImageBatchService {
     this.jobParams.set(jobId, params);
     this.stopRequested.set(jobId, false);
 
-    const instanceId = params.instanceId;
-    if (!this.jobQueueByInstance.has(instanceId)) {
-      this.jobQueueByInstance.set(instanceId, []);
-    }
-    this.jobQueueByInstance.get(instanceId)!.push(jobId);
+    instanceQueueManager.enqueue({
+      jobId,
+      serviceType: "image-batch",
+      label: `Image batch: ${params.poses.length} poses`,
+      instanceId: params.instanceId,
+      onStart: () => this.startJob(jobId),
+    });
     this.broadcastQueueState();
-    this.processQueue();
 
     return jobId;
   }

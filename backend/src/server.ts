@@ -12,6 +12,7 @@ import imageBatchRouter from "./routes/image-batch.routes.js";
 import bannerBatchRouter from "./routes/banner-batch.routes.js";
 import faceMaskRouter from "./routes/face-mask.routes.js";
 import emotionPipelineRouter from "./routes/emotion-pipeline.routes.js";
+import presetsRouter from "./routes/presets.routes.js";
 import { setupWebSocket } from "./routes/websocket.routes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -47,6 +48,7 @@ app.use("/api/image-batch", imageBatchRouter);
 app.use("/api/banner-batch", bannerBatchRouter);
 app.use("/api/tools/face-mask", faceMaskRouter);
 app.use("/api/emotion-pipeline", emotionPipelineRouter);
+app.use("/api/presets", presetsRouter);
 
 // Error handling
 app.use(errorHandler);

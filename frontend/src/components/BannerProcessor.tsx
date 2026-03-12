@@ -10,6 +10,8 @@ import {
   type BannerBatchJobStatus,
   type BannerBatchQueueState,
 } from "../api/banner-batch-client";
+import PresetPicker from "./PresetPicker";
+import type { CharacterPreset } from "../api/presets-client";
 import "./BannerProcessor.css";
 
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3002/ws";
@@ -163,6 +165,42 @@ export default function BannerProcessor() {
       : 0;
   const totalTaskCount = comboCount * runsPerCombo;
 
+  const handlePresetLoad = (preset: CharacterPreset) => {
+    if (preset.fixedPrefix !== undefined) setFixedPrefix(preset.fixedPrefix);
+    if (preset.styleTrigger !== undefined) setStyleTrigger(preset.styleTrigger);
+    if (preset.character !== undefined) setCharacter(preset.character);
+    if (preset.outfit !== undefined) setOutfit(preset.outfit);
+    if (preset.backgroundPositive !== undefined) setBackgroundPositive(preset.backgroundPositive);
+    if (preset.fixedSuffix !== undefined) setFixedSuffix(preset.fixedSuffix);
+    if (preset.fixedNegative !== undefined) setFixedNegative(preset.fixedNegative);
+    if (preset.backgroundNegative !== undefined) setBackgroundNegative(preset.backgroundNegative);
+    if (preset.loraSlots?.length) {
+      setLoraSlots(preset.loraSlots.map((s) => ({
+        enabled: s.enabled,
+        loraName: s.loraName,
+        strengthModel: s.strengthModel,
+        strengthClip: s.strengthClip,
+      })));
+    }
+  };
+
+  const getCurrentSettingsForPreset = () => ({
+    fixedPrefix,
+    styleTrigger,
+    character,
+    outfit,
+    backgroundPositive,
+    fixedSuffix,
+    fixedNegative,
+    backgroundNegative,
+    loraSlots: loraSlots.map((s) => ({
+      enabled: s.enabled,
+      loraName: s.loraName,
+      strengthModel: s.strengthModel,
+      strengthClip: s.strengthClip,
+    })),
+  });
+
   const resetForm = () => {
     setFixedPrefix(DEFAULT_FIXED_PREFIX);
     setStyleTrigger("");
@@ -233,6 +271,8 @@ export default function BannerProcessor() {
         <h1>썸네일 및 배너 이미지 제작</h1>
         <p>banner-config 기반 pose + gesture 조합 자동 생성</p>
       </header>
+
+      <PresetPicker onLoad={handlePresetLoad} getCurrentSettings={getCurrentSettingsForPreset} />
 
       <div className="ib-layout">
         <div className="ib-settings">
