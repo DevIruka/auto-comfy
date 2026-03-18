@@ -88,156 +88,75 @@ DEFAULT_OUTPUT_FOLDER_PATH=./output
 VITE_API_URL=http://localhost:3002
 ```
 
-## 📡 API 사용법
+facemask -> 용량이 커서 git에 업데이트 안 됨. 별도로 다운 받아서 설치해줄 필요 있음.
 
-### 기본 워크플로우 실행
+---
 
-```typescript
-import { comfyClient } from "./api/comfy-client";
+## 기능 상세 설명
 
-// 워크플로우 실행
-const result = await comfyClient.executeWorkflow(yourWorkflow);
+### 1. 프리셋 기능
 
-// 이미지 URL 추출
-const imageUrls = comfyClient.extractImageUrls(result);
-console.log(imageUrls);
-```
+프리셋은 **캐릭터와 장소(스팟)별로 쓰는 설정을 한 번에 저장해 두었다가 불러오는 기능**입니다.
 
-### React 컴포넌트에서 사용
+예를 들어 "아리나 - 학교 복도" 같은 프리셋을 만들어 두면, 그 안에는 다음이 들어갑니다.
 
-```typescript
-import { comfyClient } from "./api/comfy-client";
-import { useState } from "react";
+- **캐릭터 외모**: 머리색, 눈 색, 체형 등
+- **의상**: 입고 있는 옷
+- **배경**: 학교 복도, 침실 등 장소 묘사
+- **LoRA**: 캐릭터를 표현하는 데 쓰는 모델 설정
+- **스타일/화풍**: 그림체, 분위기 관련 설정
 
-function ImageGenerator() {
-  const [images, setImages] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
+이렇게 저장해 두면, 나중에 같은 캐릭터·장소로 작업할 때 프리셋을 선택해서 불러오기만 하면 됩니다.  
+매번 설정을 다시 입력할 필요가 없어서 작업이 훨씬 편해집니다.
 
-  const generateImage = async (prompt: string) => {
-    setLoading(true);
-    try {
-      const workflow = {
-        // 여기에 ComfyUI 워크플로우 JSON
-        // "Save (API Format)"으로 저장한 것을 사용
-      };
+---
 
-      const result = await comfyClient.executeWorkflow(workflow);
-      const urls = comfyClient.extractImageUrls(result);
-      setImages(urls);
-    } catch (error) {
-      console.error("Failed:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+### 2. 성인용 이미지·썸네일 이미지 자동화
 
-  return (
-    <div>
-      <button onClick={() => generateImage("beautiful landscape")}>
-        Generate
-      </button>
-      {loading && <p>Loading...</p>}
-      {images.map((url, i) => (
-        <img key={i} src={url} alt={`Generated ${i}`} />
-      ))}
-    </div>
-  );
-}
-```
+**Image Batch** 기능은 **포즈 설정(pose-config)에 정의된 여러 포즈를 골라서, 그에 맞는 이미지를 한꺼번에 자동으로 만들어 주는 기능**입니다.
 
-## 📝 워크플로우 준비하기
+- 포즈 종류(예: Cowgirl, Missionary, Oral 등)를 선택하면, 각 포즈마다 여러 장의 이미지가 자동 생성됩니다.
+- 한 포즈당 3~5장 정도, 서로 다른 시드로 생성해 줘서 결과가 다양하게 나옵니다.
+- 프리셋으로 불러온 캐릭터·배경 설정을 그대로 쓰고, 의상은 **Nude** 또는 **프리셋 의상 그대로** 중에서 선택할 수 있습니다.
+- 썸네일이나 홍보용 이미지처럼, 같은 캐릭터·배경으로 여러 포즈를 한 번에 뽑아야 할 때 유용합니다.
 
-1. RunPod에서 ComfyUI를 실행합니다
-2. ComfyUI에서 원하는 워크플로우를 만듭니다
-3. 메뉴에서 **"Save (API Format)"** 선택
-4. JSON 파일을 저장합니다
-5. 해당 JSON을 코드에서 사용합니다
+---
 
-## 🔌 API 엔드포인트
+### 3. 마스킹 인페인팅 기능
 
-### ComfyUI 기본 API
+이 기능은 **원본 이미지의 얼굴(피부·눈)만 선택적으로 바꾸고, 나머지는 그대로 두는 방식**입니다.
 
-- `POST /api/comfy/queue` - 워크플로우 큐에 추가
-- `POST /api/comfy/execute` - 워크플로우 실행 및 완료 대기
-- `GET /api/comfy/history/:promptId?` - 실행 히스토리 조회
-- `GET /api/comfy/queue` - 큐 상태 조회
+**얼굴 마스킹 도구**는:
 
-### 성인용 포즈 배치
+- 이미지에서 얼굴 영역(피부, 눈)을 자동으로 찾아서 **투명하게** 만듭니다.
+- 머리카락은 그대로 유지됩니다.
+- 여러 장의 이미지를 한 번에 처리할 수 있습니다.
+- 애니메이션·일러스트 스타일 이미지에 맞춰 설계되어 있습니다.
 
-- `POST /api/batch/scan` - 폴더 스캔
-- `POST /api/batch/start` - 배치 시작
-- `POST /api/batch/:jobId/pause` - 일시정지
-- `GET /api/batch/:jobId/status` - 상태 조회
+**Emotion Pipeline**에서는 이 마스킹 결과를 활용합니다.
 
-### 감정 비디오 배치 (NEW)
+- 마스킹된 이미지의 **얼굴 부분만** 인페인팅으로 다시 그려서, **Happy, Aroused, Sad, Angry** 같은 감정별 표정을 만듭니다.
+- 같은 캐릭터·포즈로 여러 감정 버전을 만들 때 사용합니다.
+- 마스킹 → 인페인팅 → 업스케일까지 한 흐름으로 자동 처리됩니다.
 
-- `POST /api/emotion-batch/scan` - 감정 이미지 스캔
-- `POST /api/emotion-batch/start` - 감정 배치 시작
-- `POST /api/emotion-batch/:jobId/pause` - 일시정지
-- `GET /api/emotion-batch/:jobId/status` - 상태 조회
+번외 -> 뉴트럴은 따로 inpaint 없이 업스케일만 진행합니다. 
 
-### ComfyUI 인스턴스 관리 (NEW)
+---
 
-- `GET /api/comfy-instances` - 사용 가능한 ComfyUI 인스턴스 목록
+### 4. 썸네일 및 배너 이미지 자동화
 
-## 🛠 기술 스택
+**썸네일 및 배너 이미지** 기능은 **banner-config.json에 정의된 포즈와 제스처를 조합해서, 썸네일·배너용 이미지를 자동으로 만들어 주는 기능**입니다.
 
-### Frontend
+- **포즈(Pose)**: 서 있는 자세, 누워 있는 자세 등 기본 자세
+- **제스처(Gesture)**: 유혹적인 손짓, 특정 포즈 등 추가 동작
 
-- React 19
-- TypeScript
-- Vite
-- CSS
+이 두 가지를 조합해서:
 
-### Backend
+- 포즈만 있는 이미지
+- 포즈 + 제스처가 함께 있는 이미지
 
-- Node.js
-- Express
-- TypeScript
-- Axios
-- WebSocket
+를 자동으로 생성합니다. 예를 들어 "Standing Pose" + "Seductive Gesture" 같은 조합이 됩니다.
 
-## 🎬 배치 시스템
+- "Lying Down" 같은 눕는 포즈를 쓰면, 가로로 긴 배너 비율(1536×1024)로 자동 생성됩니다.
+- 프리셋으로 불러온 캐릭터·배경 설정을 그대로 사용할 수 있어서, 일관된 스타일의 썸네일·배너를 대량으로 만들 수 있습니다.
 
-### 성인용 포즈 배치
-
-폴더 내 이미지를 자동으로 처리하여 포즈별 영상 생성:
-
-- 이미지당 3개 또는 5개 영상 (랜덤 시드 토글)
-- 포즈별 프롬프트 자동 적용 (`pose-config.json`)
-- 포즈별 폴더 자동 생성 (예: `Cowgirl/`, `Doggy/`)
-
-### 감정 비디오 배치 (NEW)
-
-감정 이미지를 기반으로 대화/대기 영상 자동 생성:
-
-- 이미지당 9개 영상 (Idle 3개 + SpeakNatural 6개)
-- 파일명에서 감정 자동 인식 (예: `sit_angry.png`, `stand_neutral.png`)
-- nude 폴더 지원 (파일명에 Naked 태그 추가)
-- 감정별 프롬프트 자동 적용 (`emotion-config.json`)
-
-**출력 파일명 예시:**
-
-```
-Sit_Idle_Neutral_to_Neutral_Clothed_00001.mkv
-Stand_SpeakNatural_Angry_to_Angry_Naked_00002.mkv
-Sit_SpeakNatural_Sad_to_Neutral_Clothed_00003.mkv
-```
-
-### 다중 ComfyUI 인스턴스
-
-여러 RunPod Pod를 동시에 활용하여 처리 속도 향상:
-
-- 각 폴더 쌍마다 다른 ComfyUI 인스턴스 할당 가능
-- 병렬 처리로 시간 단축
-- UI에서 인스턴스별 작업 분배 설정
-
-## 📚 추가 리소스
-
-- [ComfyUI GitHub](https://github.com/comfyanonymous/ComfyUI)
-- [ComfyUI API Documentation](https://github.com/comfyanonymous/ComfyUI/wiki/API)
-- [RunPod Documentation](https://docs.runpod.io/)
-
-## 📄 라이선스
-
-MIT
