@@ -1,0 +1,40 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  "styleTrigger": "ahemaru, ahemaru style, ",
+  "character": "1girl, solo, brown long hair, sharp gray eyes, glasses, slender body, ",
+  "outfit": "office lady, white blouse, tight black skirt, professional atmosphere, ",
+  "backgroundPositive": "bedroom, indoors, on bed, bed sheet, pillow, soft lighting, warm lighting, window, curtains, cozy atmosphere, detailed background,",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, \n\noutdoor, outside, forest, nature, trees, beach, street, kitchen, bathroom, living room, different room, harsh lighting, simple background, plain background",
+  "prefixPrompt": "A beautiful anime woman with gray eyes, glasses, grayish purple hair, ",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "ahemaru.safetensors",
+      "strengthModel": 0.8,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "guild.safetensors",
+      "strengthModel": 0.8,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "카밀라 - spot 2 저택의 침실",
+  "createdAt": "2026-03-17T05:14:29.266Z",
+  "updatedAt": "2026-03-17T05:14:29.266Z"
+}

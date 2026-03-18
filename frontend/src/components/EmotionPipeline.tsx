@@ -143,12 +143,13 @@ export default function EmotionPipeline() {
   }, [selectedJobId, selectedJob?.status]);
 
   const handlePresetLoad = (preset: CharacterPreset) => {
+    const negValue = preset.negativeExtra ?? preset.backgroundNegative;
     setPromptBlocks((prev) => ({
       ...prev,
       ...(preset.character !== undefined && { character: preset.character }),
       ...(preset.pose !== undefined && { pose: preset.pose }),
       ...(preset.backgroundPositive !== undefined && { background: preset.backgroundPositive }),
-      ...(preset.negativeExtra !== undefined && { negativeExtra: preset.negativeExtra }),
+      ...(negValue !== undefined && { negativeExtra: negValue }),
     }));
     if (preset.prefixPrompt !== undefined) setVideoPrefixPrompt(preset.prefixPrompt);
     if (preset.loraSlots?.length) {
@@ -166,6 +167,7 @@ export default function EmotionPipeline() {
     pose: promptBlocks.pose,
     backgroundPositive: promptBlocks.background,
     negativeExtra: promptBlocks.negativeExtra,
+    backgroundNegative: promptBlocks.negativeExtra,
     prefixPrompt: videoPrefixPrompt,
     loraSlots: loraSlots.map((s) => ({
       enabled: s.enabled,
