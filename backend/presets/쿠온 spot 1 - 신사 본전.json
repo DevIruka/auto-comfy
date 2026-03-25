@@ -1,0 +1,36 @@
+{
+  "character": "1girl, solo, long golden hair, fox ears, bright yellow eyes, small petite body, small breast, ",
+  "pose": "looking at viewer, facing forward, cowboy shot",
+  "backgroundPositive": "sunlit tatami room, shoji screens with light gaps, golden afternoon sunlight, fluffy bedding, old TV on table, traditional cozy hall, warm natural light, lived-in japanese interior, masterpiece, best quality, highres",
+  "negativeExtra": "red pupils, \n\noutdoor, laboratory, office, studio, nightclub, dark room, harsh shadows, cluttered room, messy room, dirty, old furniture, cheap looking",
+  "backgroundNegative": "red pupils, \n\noutdoor, laboratory, office, studio, nightclub, dark room, harsh shadows, cluttered room, messy room, dirty, old furniture, cheap looking",
+  "prefixPrompt": "A beautiful anime girl with long golden hair, fox ears, bright yellow eyes, small breast, ",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "miko cos.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "쿠온 spot 1 - 신사 본전",
+  "updatedAt": "2026-03-21T01:13:21.502Z"
+}

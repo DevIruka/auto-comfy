@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import BatchProcessor from "./components/BatchProcessor";
 import ImageBatchProcessor from "./components/ImageBatchProcessor";
 import BannerProcessor from "./components/BannerProcessor";
+import AnchorImageProcessor from "./components/AnchorImageProcessor";
 import EmotionPipeline from "./components/EmotionPipeline";
 import { comfyClient, type ComfyInstanceInfo } from "./api/comfy-client";
 import "./App.css";
@@ -24,6 +25,7 @@ interface DashboardInstance extends ComfyInstanceInfo {
 const SERVICE_LABELS: Record<string, string> = {
   "image-batch": "이미지",
   "banner-batch": "배너",
+  "anchor-image": "앵커 이미지",
   batch: "영상",
   "emotion-batch": "감정 영상",
   "emotion-pipeline": "마스킹+인페인팅",
@@ -227,7 +229,7 @@ function PodManager() {
 
 function App() {
   const [activeTab, setActiveTab] = useState<
-    "batch" | "imageBatch" | "banner" | "emotionPipeline"
+    "batch" | "imageBatch" | "banner" | "anchor" | "emotionPipeline"
   >("imageBatch");
 
   return (
@@ -245,6 +247,12 @@ function App() {
             onClick={() => setActiveTab("banner")}
           >
             썸네일 및 배너 이미지
+          </button>
+          <button
+            className={`nav-tab ${activeTab === "anchor" ? "active" : ""}`}
+            onClick={() => setActiveTab("anchor")}
+          >
+            앵커 이미지 제작
           </button>
           <button
             className={`nav-tab ${activeTab === "batch" ? "active" : ""}`}
@@ -265,6 +273,7 @@ function App() {
       <main className="app-main">
         {activeTab === "imageBatch" && <ImageBatchProcessor />}
         {activeTab === "banner" && <BannerProcessor />}
+        {activeTab === "anchor" && <AnchorImageProcessor />}
         {activeTab === "batch" && <BatchProcessor />}
         {activeTab === "emotionPipeline" && <EmotionPipeline />}
       </main>

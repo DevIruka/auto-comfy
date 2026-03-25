@@ -101,6 +101,12 @@ comfyInstancesRouter.post(
         stopped = true;
         break;
       }
+      case "anchor-image": {
+        const { anchorImageService } = await import("../services/anchor-image.service.js");
+        anchorImageService.stopJob(jobId);
+        stopped = true;
+        break;
+      }
       case "batch": {
         const { batchService } = await import("../services/batch.service.js");
         await batchService.stopBatch(jobId);

@@ -280,6 +280,11 @@ export default function EmotionPipeline() {
             placeholder="예: c:\Users\...\이미지\침실"
             disabled={loading}
           />
+          <p className="form-hint">
+            스캔 폴더(또는 작업 루트)에 <code>masked</code> 폴더가 있고 그 안에 이미지가 있으면
+            얼굴 마스킹 단계는 건너뛰고, 해당 이미지로 바로 인페인팅합니다. 파일명은 자동 마스킹 결과와
+            동일해야 합니다(원본 1장: <code>이름.png</code>, 여러 장: <code>0000_이름.png</code> 형식).
+          </p>
         </div>
 
         <div className="form-group">

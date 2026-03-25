@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile, mkdir, cp, rm } from "fs/promises";
+import { readdir, readFile, writeFile, mkdir, cp, rm, stat } from "fs/promises";
 import { join, basename, extname } from "path";
 import { spawn } from "child_process";
 import { v4 as uuidv4 } from "uuid";
@@ -105,10 +105,12 @@ async function loadEmotionConfig(): Promise<EmotionConfig> {
 }
 
 /**
- * Scan folder for image paths. If useOriginSubfolder, scan the "원본" subfolder when present.
- * Includes all image files in the target directory.
+ * Resolve directory to scan (same logic as image listing).
  */
-async function scanImagePaths(folderPath: string, useOriginSubfolder: boolean): Promise<string[]> {
+async function resolveScanDir(
+  folderPath: string,
+  useOriginSubfolder: boolean
+): Promise<string> {
   let dir = folderPath;
   if (useOriginSubfolder) {
     try {
@@ -119,6 +121,39 @@ async function scanImagePaths(folderPath: string, useOriginSubfolder: boolean): 
       // ignore
     }
   }
+  return dir;
+}
+
+/**
+ * Scan folder for image paths. If useOriginSubfolder, scan the "원본" subfolder when present.
+ * Includes all image files in the target directory.
+ */
+async function scanImagePaths(
+  folderPath: string,
+  useOriginSubfolder: boolean
+): Promise<{ scanDir: string; imagePaths: string[] }> {
+  const scanDir = await resolveScanDir(folderPath, useOriginSubfolder);
+  const entries = await readdir(scanDir, { withFileTypes: true });
+  const files: string[] = [];
+  for (const e of entries) {
+    if (!e.isFile()) continue;
+    const ext = extname(e.name).toLowerCase();
+    if (IMAGE_EXT.has(ext)) files.push(join(scanDir, e.name));
+  }
+  return { scanDir, imagePaths: files.sort() };
+}
+
+async function isDirectory(path: string): Promise<boolean> {
+  try {
+    const s = await stat(path);
+    return s.isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/** List image files in a directory (non-recursive). */
+async function listImagesInDir(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
   const files: string[] = [];
   for (const e of entries) {
@@ -127,6 +162,59 @@ async function scanImagePaths(folderPath: string, useOriginSubfolder: boolean): 
     if (IMAGE_EXT.has(ext)) files.push(join(dir, e.name));
   }
   return files.sort();
+}
+
+/**
+ * Prefer masked next to scanned images, then job-root masked (legacy layout).
+ */
+async function findExistingMaskedDir(
+  scanDir: string,
+  folderPath: string
+): Promise<string | null> {
+  const candidates = [join(scanDir, "masked"), join(folderPath, "masked")];
+  for (const p of candidates) {
+    if (!(await isDirectory(p))) continue;
+    const imgs = await listImagesInDir(p);
+    if (imgs.length > 0) return p;
+  }
+  return null;
+}
+
+/**
+ * Pair originals with masked PNGs using the same basename rules as runFaceMask output.
+ */
+function pairOriginalsWithExistingMasked(
+  imagePaths: string[],
+  maskedPaths: string[]
+): { inputPath: string; outputPath: string }[] {
+  const byName = new Map<string, string>();
+  for (const m of maskedPaths) {
+    byName.set(basename(m).toLowerCase(), m);
+  }
+
+  const n = imagePaths.length;
+  const pairs: { inputPath: string; outputPath: string }[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const src = imagePaths[i];
+    const stem = basename(src, extname(src));
+    const base =
+      n > 1
+        ? `${String(i).padStart(4, "0")}_${stem}`
+        : stem;
+    const outName = `${base}.png`;
+    const failName = `${base}_fail.png`;
+    const maskedPath =
+      byName.get(outName.toLowerCase()) ?? byName.get(failName.toLowerCase());
+    if (!maskedPath) {
+      throw new Error(
+        `Existing masked folder: no file matching "${outName}" or "${failName}" for original "${basename(src)}"`
+      );
+    }
+    pairs.push({ inputPath: src, outputPath: maskedPath });
+  }
+
+  return pairs;
 }
 
 /**
@@ -289,16 +377,38 @@ export async function startEmotionPipeline(
     const comfy = comfyManager.getInstance(comfyInstanceId);
     const emotionConfig = await loadEmotionConfig();
 
-    const imagePaths = await scanImagePaths(folderPath, useOriginSubfolder);
+    const { scanDir, imagePaths } = await scanImagePaths(
+      folderPath,
+      useOriginSubfolder
+    );
     if (imagePaths.length === 0) {
-      throw new Error('No images found whose filename contains "원본" (in folder or 원본 subfolder)');
+      throw new Error(
+        "No images found in the job folder (or in a \"원본\" subfolder when that option is on)"
+      );
     }
     addLog(jobId, `Found ${imagePaths.length} images`);
 
-    const maskedOutputDir = join(folderPath, "masked");
-    const masked = await runFaceMaskWithLock(imagePaths, faceMaskDir, jobId, maskedOutputDir);
-    if (masked.length === 0) {
-      throw new Error("Face mask produced no outputs");
+    const existingMaskedDir = await findExistingMaskedDir(scanDir, folderPath);
+    let masked: { inputPath: string; outputPath: string }[];
+
+    if (existingMaskedDir) {
+      const maskedFiles = await listImagesInDir(existingMaskedDir);
+      addLog(
+        jobId,
+        `Using existing masked folder (${existingMaskedDir}): ${maskedFiles.length} images, skipping face mask`
+      );
+      masked = pairOriginalsWithExistingMasked(imagePaths, maskedFiles);
+    } else {
+      const maskedOutputDir = join(folderPath, "masked");
+      masked = await runFaceMaskWithLock(
+        imagePaths,
+        faceMaskDir,
+        jobId,
+        maskedOutputDir
+      );
+      if (masked.length === 0) {
+        throw new Error("Face mask produced no outputs");
+      }
     }
 
     const emotionsFolder = join(folderPath, "Emotions");

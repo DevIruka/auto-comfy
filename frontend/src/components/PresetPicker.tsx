@@ -19,6 +19,8 @@ export default function PresetPicker({ onLoad, getCurrentSettings }: PresetPicke
   const [showSave, setShowSave] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  /** Preset name last successfully loaded via "불러오기" — used for overwrite save */
+  const [lastLoadedPresetName, setLastLoadedPresetName] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -36,6 +38,7 @@ export default function PresetPicker({ onLoad, getCurrentSettings }: PresetPicke
     try {
       const preset = await presetsClient.getPreset(selected);
       onLoad(preset);
+      setLastLoadedPresetName(selected);
       setMessage(`"${selected}" 불러옴`);
       setTimeout(() => setMessage(null), 2000);
     } catch (e) {
@@ -70,6 +73,26 @@ export default function PresetPicker({ onLoad, getCurrentSettings }: PresetPicke
     }
   };
 
+  const handleOverwriteLoaded = async () => {
+    if (!lastLoadedPresetName) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const settings = getCurrentSettings();
+      await presetsClient.updatePreset(lastLoadedPresetName, {
+        ...settings,
+        name: lastLoadedPresetName,
+      });
+      setMessage(`"${lastLoadedPresetName}" 업데이트됨`);
+      await refresh();
+      setTimeout(() => setMessage(null), 2000);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "업데이트 실패");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!selected) return;
     if (!confirm(`프리셋 "${selected}"을(를) 삭제하시겠습니까?`)) return;
@@ -77,6 +100,7 @@ export default function PresetPicker({ onLoad, getCurrentSettings }: PresetPicke
     setMessage(null);
     try {
       await presetsClient.deletePreset(selected);
+      if (selected === lastLoadedPresetName) setLastLoadedPresetName(null);
       setSelected("");
       await refresh();
       setMessage("삭제 완료");
@@ -110,15 +134,23 @@ export default function PresetPicker({ onLoad, getCurrentSettings }: PresetPicke
         <button onClick={handleDelete} disabled={busy || !selected} className="preset-btn preset-btn-delete">
           삭제
         </button>
+        <button
+          onClick={handleOverwriteLoaded}
+          disabled={busy || !lastLoadedPresetName}
+          className="preset-btn preset-btn-overwrite"
+          title={lastLoadedPresetName ? `"${lastLoadedPresetName}"에 덮어씁니다` : "먼저 프리셋을 불러오세요"}
+        >
+          불러온 프리셋에 저장
+        </button>
         <button onClick={() => setShowSave(!showSave)} className="preset-btn preset-btn-save-toggle" disabled={busy}>
-          {showSave ? "취소" : "현재 설정 저장"}
+          {showSave ? "취소" : "새 이름으로 저장"}
         </button>
       </div>
       {showSave && (
         <div className="preset-picker-save-row">
           <input
             type="text"
-            placeholder="프리셋 이름 (예: 캐릭터A_스팟1)"
+            placeholder="새 프리셋 이름 (예: 캐릭터A_스팟1)"
             value={saveName}
             onChange={(e) => setSaveName(e.target.value)}
             disabled={busy}

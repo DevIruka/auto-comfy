@@ -366,6 +366,20 @@
   background: #5a6fd6;
 }
 
+.preset-btn-overwrite {
+  background: #eef2ff;
+  color: #4338ca;
+  border-color: #a5b4fc;
+}
+
+.preset-btn-overwrite:hover:not(:disabled) {
+  background: #e0e7ff;
+}
+
+.preset-btn-overwrite:disabled {
+  opacity: 0.45;
+}
+
 .preset-btn-delete {
   background: #fef2f2;
   color: #dc2626;
@@ -493,6 +507,112 @@
   color: #000;
   outline: none;
   box-shadow: 0 0 0 2px rgba(107, 126, 197, 0.2);
+}
+
+/* Anchor image results (preview + label save) */
+.anchor-results {
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.anchor-results-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+}
+
+.anchor-results-hint {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.anchor-results-hint code {
+  font-size: 0.8rem;
+  background: #e2e8f0;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.anchor-results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+
+.anchor-result-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.anchor-result-thumb {
+  border-radius: 6px;
+  overflow: hidden;
+  background: #1e293b;
+  min-height: 200px;
+  max-height: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.anchor-result-thumb img {
+  max-width: 100%;
+  max-height: 480px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.anchor-result-meta {
+  font-size: 0.75rem;
+  color: #64748b;
+  word-break: break-all;
+}
+
+.anchor-label-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.anchor-label-btn {
+  padding: 0.4rem 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #3730a3;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.anchor-label-btn:hover:not(:disabled) {
+  background: #e0e7ff;
+}
+
+.anchor-label-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.anchor-results-message {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  color: #065f46;
 }
 
 /* Face Mask Tool */
@@ -688,6 +808,10 @@
   margin: -0.5rem 0 1rem;
   font-size: 0.85rem;
   color: #6b7280;
+}
+
+.emotion-pipeline-card .form-group input + .form-hint {
+  margin: 0.4rem 0 0.75rem;
 }
 
 .emotion-pipeline-card .ep-negative-extra textarea {

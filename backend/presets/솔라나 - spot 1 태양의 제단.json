@@ -1,0 +1,41 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  "styleTrigger": "augusta, ",
+  "character": "1girl, solo, long voluminous golden blonde hair, bright orange eyes, pale translucent skin, tall, long legs, glamorous, large breasts, ",
+  "outfit": "crotchless harem pants, navel, stomach,",
+  "backgroundPositive": "ancient altar chamber, deep underground ruins, massive stone altar, cold dark stone walls, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "hair ornament,\n\noutdoor, outside, bedroom, kitchen, bathroom, office, street, park, old cafe, vintage cafe, simple background, plain background,",
+  "prefixPrompt": "A beautiful anime woman with golden blonde hair, bright orange eyes,",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot,\n\nsitting, sitting on chair, ",
+  "anchorAspect": "portrait",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "augusta2.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "dancer.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "솔라나 - spot 1 태양의 제단",
+  "updatedAt": "2026-03-21T03:33:53.775Z"
+}

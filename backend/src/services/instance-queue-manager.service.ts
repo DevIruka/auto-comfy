@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 export type ServiceType =
   | "image-batch"
   | "banner-batch"
+  | "anchor-image"
   | "batch"
   | "emotion-batch"
   | "emotion-pipeline";

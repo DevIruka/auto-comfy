@@ -1,0 +1,36 @@
+{
+  "character": "1girl, solo, long golden hair, fox ears, bright yellow eyes, small petite body, small breast, ",
+  "pose": "looking at viewer, facing forward, cowboy shot",
+  "backgroundPositive": "small garden behind japanese shrine, bamboo grove, night time, moss-covered stone lanterns, moonlight at night, soft silver moonlight, scattered cherry blossom petals, serene secluded courtyard, quiet nocturnal atmosphere, bamboo shadows,masterpiece, best quality, highres",
+  "negativeExtra": "red pupils, \n\noutdoor, laboratory, office, studio, nightclub, dark room, harsh shadows, cluttered room, messy room, dirty, old furniture, cheap looking",
+  "backgroundNegative": "red pupils, \n\noutdoor, laboratory, office, studio, nightclub, dark room, harsh shadows, cluttered room, messy room, dirty, old furniture, cheap looking",
+  "prefixPrompt": "A beautiful anime girl with long golden hair, fox ears, bright yellow eyes, small breast, ",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "miko cos.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "쿠온 spot 1 - 신사 뒷편",
+  "updatedAt": "2026-03-21T01:21:26.191Z"
+}
