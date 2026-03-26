@@ -9,6 +9,7 @@ import {
 import { useBatchProgress } from "../hooks/useBatchProgress";
 import PresetPicker from "./PresetPicker";
 import type { CharacterPreset } from "../api/presets-client";
+import { useWorkspace } from "../context/WorkspaceContext";
 import "./BatchProcessor.css";
 
 interface FolderPair {
@@ -20,15 +21,32 @@ interface FolderPair {
 }
 
 export default function BatchProcessor() {
+  const { paths, workspaceReady } = useWorkspace();
   const [folderPairs, setFolderPairs] = useState<FolderPair[]>([
     {
       id: crypto.randomUUID(),
       inputPath: "",
-      outputPath: "./output",
+      outputPath: "",
       scannedImages: [],
       isScanning: false,
     },
   ]);
+
+  useEffect(() => {
+    if (!paths) {
+      setFolderPairs((prev) =>
+        prev.map((p) => ({ ...p, inputPath: "", outputPath: "" })),
+      );
+      return;
+    }
+    setFolderPairs((prev) =>
+      prev.map((p) => ({
+        ...p,
+        inputPath: paths.imageAdult,
+        outputPath: paths.videoAdult,
+      })),
+    );
+  }, [paths]);
   const [prefixPrompt, setPrefixPrompt] = useState("");
   const [includeRandomSeeds, setIncludeRandomSeeds] = useState(false);
   const [autoStopPod, setAutoStopPod] = useState(false);
@@ -100,8 +118,8 @@ export default function BatchProcessor() {
       ...prev,
       {
         id: crypto.randomUUID(),
-        inputPath: "",
-        outputPath: "./output",
+        inputPath: paths?.imageAdult ?? "",
+        outputPath: paths?.videoAdult ?? "",
         scannedImages: [],
         isScanning: false,
       },
@@ -114,16 +132,6 @@ export default function BatchProcessor() {
       return;
     }
     setFolderPairs((prev) => prev.filter((pair) => pair.id !== id));
-  };
-
-  const updateFolderPair = (
-    id: string,
-    field: "inputPath" | "outputPath",
-    value: string,
-  ) => {
-    setFolderPairs((prev) =>
-      prev.map((pair) => (pair.id === id ? { ...pair, [field]: value } : pair)),
-    );
   };
 
   const handleScan = async (pairId: string) => {
@@ -174,13 +182,13 @@ export default function BatchProcessor() {
   };
 
   const handleStart = async () => {
+    if (!workspaceReady) {
+      setError("상단에서 작업 공간(캐릭터·스팟)을 선택하세요.");
+      return;
+    }
     for (const pair of folderPairs) {
-      if (!pair.inputPath) {
-        setError("모든 Input 폴더 경로를 입력하세요");
-        return;
-      }
-      if (!pair.outputPath) {
-        setError("모든 Output 폴더 경로를 입력하세요");
+      if (!pair.inputPath || !pair.outputPath) {
+        setError("입력/출력 경로가 비어 있습니다. 작업 공간을 다시 선택하세요.");
         return;
       }
     }
@@ -436,29 +444,17 @@ export default function BatchProcessor() {
                 </div>
 
                 <div className="form-group">
-                  <label>Input 폴더 경로</label>
-                  <input
-                    type="text"
-                    value={pair.inputPath}
-                    onChange={(e) =>
-                      updateFolderPair(pair.id, "inputPath", e.target.value)
-                    }
-                    placeholder="c:\Users\박민준\Desktop\input"
-                    disabled={loading}
-                  />
+                  <label>Input (성인용 이미지)</label>
+                  <div className="ib-readonly-path" title={pair.inputPath}>
+                    {pair.inputPath || "작업 공간 선택 필요"}
+                  </div>
                 </div>
 
                 <div className="form-group">
-                  <label>Output 폴더 경로</label>
-                  <input
-                    type="text"
-                    value={pair.outputPath}
-                    onChange={(e) =>
-                      updateFolderPair(pair.id, "outputPath", e.target.value)
-                    }
-                    placeholder="./output"
-                    disabled={loading}
-                  />
+                  <label>Output (성인용 영상)</label>
+                  <div className="ib-readonly-path" title={pair.outputPath}>
+                    {pair.outputPath || "작업 공간 선택 필요"}
+                  </div>
                 </div>
 
                 <button
@@ -539,6 +535,7 @@ export default function BatchProcessor() {
               onClick={handleStart}
               disabled={
                 loading ||
+                !workspaceReady ||
                 !prefixPrompt ||
                 folderPairs.some((p) => !p.inputPath || !p.outputPath)
               }

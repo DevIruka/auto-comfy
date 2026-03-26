@@ -72,7 +72,7 @@ anchorImageRouter.get(
 );
 
 /**
- * POST copy result image to {label}.png in the job output folder
+ * POST write preview buffer to {label}.png in the job export folder (감정별 이미지)
  */
 anchorImageRouter.post(
   "/:jobId/save-as",

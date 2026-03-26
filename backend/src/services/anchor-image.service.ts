@@ -1,5 +1,5 @@
-import { mkdir, writeFile, copyFile, readFile } from "fs/promises";
-import { basename, join, resolve, relative, isAbsolute } from "path";
+import { mkdir, writeFile } from "fs/promises";
+import { join, resolve, relative, isAbsolute } from "path";
 import { v4 as uuidv4 } from "uuid";
 import { comfyManager } from "./comfy-manager.service.js";
 import { instanceQueueManager } from "./instance-queue-manager.service.js";
@@ -24,6 +24,7 @@ export interface AnchorImageJobParams {
     backgroundNegative: string;
   };
   batchSize: number;
+  /** 감정별 이미지 폴더 — 라벨 저장 시에만 파일 쓰기 */
   outputPath: string;
   compositionPose: string;
   aspect: "portrait" | "landscape";
@@ -51,7 +52,7 @@ export interface AnchorImageJob {
   logs: string[];
   createdAt: string;
   error?: string;
-  /** Basenames of images written for this job (for preview API index) */
+  /** Placeholder names for preview count (images kept in RAM only until label save) */
   resultFiles?: string[];
 }
 
@@ -74,8 +75,8 @@ class AnchorImageService {
   private jobs = new Map<string, AnchorImageJob>();
   private jobParams = new Map<string, AnchorImageJobParams>();
   private stopRequested = new Map<string, boolean>();
-  /** Absolute paths of result images per job (same order as resultFiles basenames) */
-  private resultPathsByJob = new Map<string, string[]>();
+  /** In-memory PNG buffers per job (no disk write until label save) */
+  private resultBuffersByJob = new Map<string, Buffer[]>();
   private broadcastCallback: BroadcastCallback | null = null;
 
   setBroadcastCallback(cb: BroadcastCallback) {
@@ -135,30 +136,20 @@ class AnchorImageService {
     return this.jobs.get(jobId);
   }
 
-  /**
-   * Absolute path for preview if job completed and index valid.
-   */
-  getResultImagePath(jobId: string, imageIndex: number): string | null {
+  private canPreview(jobId: string, imageIndex: number): boolean {
     const job = this.jobs.get(jobId);
-    const params = this.jobParams.get(jobId);
-    const paths = this.resultPathsByJob.get(jobId);
-    if (
-      !job ||
-      !params ||
-      !paths ||
-      job.status !== "completed" ||
-      imageIndex < 0 ||
-      imageIndex >= paths.length
-    ) {
-      return null;
-    }
-    const p = paths[imageIndex];
-    if (!isPathInsideDir(p, params.outputPath)) return null;
-    return p;
+    const buffers = this.resultBuffersByJob.get(jobId);
+    return Boolean(
+      job &&
+        job.status === "completed" &&
+        buffers &&
+        imageIndex >= 0 &&
+        imageIndex < buffers.length,
+    );
   }
 
   /**
-   * Copy result image to outputPath/{label}.png
+   * Write chosen buffer to outputPath/{label}.png (only persistence for anchor batch)
    */
   async saveResultWithLabel(
     jobId: string,
@@ -170,16 +161,24 @@ class AnchorImageService {
     }
     const job = this.jobs.get(jobId);
     const params = this.jobParams.get(jobId);
-    const src = this.getResultImagePath(jobId, imageIndex);
-    if (!job || !params || !src) {
+    const buffers = this.resultBuffersByJob.get(jobId);
+    if (
+      !job ||
+      !params ||
+      !buffers ||
+      job.status !== "completed" ||
+      imageIndex < 0 ||
+      imageIndex >= buffers.length
+    ) {
       throw new Error("Job not found, not completed, or invalid image index");
     }
     const dest = join(params.outputPath, `${label}.png`);
     if (!isPathInsideDir(dest, params.outputPath)) {
       throw new Error("Invalid output path");
     }
-    await copyFile(src, dest);
-    this.addLog(jobId, `Labeled copy: ${label}.png (from image #${imageIndex})`);
+    await mkdir(params.outputPath, { recursive: true });
+    await writeFile(dest, buffers[imageIndex]);
+    this.addLog(jobId, `Saved: ${label}.png (from preview #${imageIndex})`);
     return { savedPath: dest, fileName: `${label}.png` };
   }
 
@@ -187,9 +186,10 @@ class AnchorImageService {
     jobId: string,
     imageIndex: number,
   ): Promise<Buffer | null> {
-    const p = this.getResultImagePath(jobId, imageIndex);
-    if (!p) return null;
-    return readFile(p);
+    if (!this.canPreview(jobId, imageIndex)) return null;
+    const buffers = this.resultBuffersByJob.get(jobId);
+    if (!buffers) return null;
+    return buffers[imageIndex];
   }
 
   createJob(params: AnchorImageJobParams): string {
@@ -234,8 +234,6 @@ class AnchorImageService {
     const height = isLandscape ? LYING_DOWN_HEIGHT : DEFAULT_HEIGHT;
 
     try {
-      await mkdir(params.outputPath, { recursive: true });
-
       if (this.stopRequested.get(jobId)) {
         job.status = "stopped";
         this.addLog(jobId, "Batch stopped by user");
@@ -285,28 +283,22 @@ class AnchorImageService {
         const result = await this.pollForCompletion(comfy, promptId);
         const images = result.outputs["212"]?.images || [];
 
-        const savedPaths: string[] = [];
+        const buffers: Buffer[] = [];
         for (const img of images) {
           const imageBuffer = await comfy.getImage(
             img.filename,
             img.subfolder,
             img.type,
           );
-          const saveName = `anchor_seed${seed}_${img.filename}`.replace(
-            /[<>:"/\\|?*]/g,
-            "_",
-          );
-          const savePath = join(params.outputPath, saveName);
-          await writeFile(savePath, imageBuffer);
-          savedPaths.push(savePath);
+          buffers.push(imageBuffer);
         }
 
-        job.resultFiles = savedPaths.map((p) => basename(p));
-        this.resultPathsByJob.set(jobId, savedPaths);
+        this.resultBuffersByJob.set(jobId, buffers);
+        job.resultFiles = buffers.map((_, i) => `preview_${i}.png`);
 
         this.addLog(
           jobId,
-          `✅ Saved ${images.length} image(s)`,
+          `✅ Preview ready: ${buffers.length} image(s) in memory (disk save only via label buttons)`,
         );
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);

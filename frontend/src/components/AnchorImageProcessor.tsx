@@ -13,6 +13,7 @@ import {
 } from "../api/anchor-image-client";
 import PresetPicker from "./PresetPicker";
 import type { CharacterPreset } from "../api/presets-client";
+import { useWorkspace } from "../context/WorkspaceContext";
 import "./BannerProcessor.css";
 
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3002/ws";
@@ -83,7 +84,8 @@ export default function AnchorImageProcessor() {
   );
 
   const [batchSize, setBatchSize] = useState(4);
-  const [outputPath, setOutputPath] = useState("");
+  const { paths, workspaceReady, resolveError } = useWorkspace();
+  const outputPath = paths?.emotionImages ?? "";
 
   const [queueState, setQueueState] = useState<AnchorImageQueueState | null>(
     null,
@@ -118,7 +120,7 @@ export default function AnchorImageProcessor() {
         imageIndex,
         label,
       );
-      setAnchorUiMessage(`저장됨: ${fileName} (출력 폴더)`);
+      setAnchorUiMessage(`저장됨: ${fileName} (감정별 이미지)`);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -256,8 +258,11 @@ export default function AnchorImageProcessor() {
 
   const handleStart = async () => {
     setError(null);
-    if (!outputPath) {
-      setError("저장 경로를 입력하세요.");
+    if (!workspaceReady || !outputPath) {
+      setError(
+        resolveError ||
+          "상단에서 작업 공간(캐릭터·스팟)을 선택하세요. 생성 결과는 메모리 미리보기이며, 라벨 저장 시에만 감정별 이미지 폴더에 기록됩니다.",
+      );
       return;
     }
     try {
@@ -313,7 +318,7 @@ export default function AnchorImageProcessor() {
         <h1>앵커 이미지 제작</h1>
         <p>
           단일 랜덤 시드 · 배치 크기만 조절 · 프롬프트 공란으로 시험 실행 가능 · 완료 후
-          미리보기 · 라벨로 PNG 저장
+          메모리 미리보기만 제공 · 라벨 버튼으로만 감정별 이미지 폴더에 PNG 저장
         </p>
       </header>
 
@@ -583,14 +588,10 @@ export default function AnchorImageProcessor() {
           </div>
 
           <div className="ib-section">
-            <label className="ib-label">Output Path</label>
-            <input
-              type="text"
-              value={outputPath}
-              onChange={(e) => setOutputPath(e.target.value)}
-              className="ib-input"
-              placeholder="C:\output\anchor"
-            />
+            <label className="ib-label">라벨 저장 위치 (감정별 이미지)</label>
+            <div className="ib-readonly-path" title={outputPath}>
+              {workspaceReady ? outputPath : "작업 공간을 선택하세요"}
+            </div>
           </div>
         </div>
 
@@ -605,7 +606,11 @@ export default function AnchorImageProcessor() {
           </div>
 
           <div className="ib-actions">
-            <button className="ib-btn-primary" onClick={handleStart}>
+            <button
+              className="ib-btn-primary"
+              onClick={handleStart}
+              disabled={!workspaceReady}
+            >
               생성 시작
             </button>
             {isRunning && (

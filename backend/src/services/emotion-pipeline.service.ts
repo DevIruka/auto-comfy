@@ -10,6 +10,8 @@ export type { SdxlWaiPromptBlocks, SdxlWaiLoraSlot };
 
 const IMAGE_EXT = new Set([".png", ".jpg", ".jpeg", ".webp", ".bmp"]);
 const EMOTIONS = ["Happy", "Aroused", "Sad", "Angry"] as const;
+/** Neutral 폴더는 업스케일 시드 횟수와 무관하게 항상 1회만 실행 */
+const NEUTRAL_UPSCALE_ROUNDS = 1;
 const SAVE_NODE_ID = "1044";
 
 export interface EmotionConfig {
@@ -420,8 +422,10 @@ export async function startEmotionPipeline(
 
     const isStopped = () => stopRequested.get(jobId) === true;
 
-    // Total steps: Neutral upscale (1 step/round) + 4 emotions (inpaint+upscale = 2 steps/round)
-    const totalSteps = masked.length * (totalSeeds + EMOTIONS.length * totalSeeds * 2);
+    // Total steps: Neutral upscale (fixed rounds) + 4 emotions (inpaint+upscale = 2 steps/round)
+    const totalSteps =
+      masked.length *
+      (NEUTRAL_UPSCALE_ROUNDS + EMOTIONS.length * totalSeeds * 2);
     setStep(jobId, 0, totalSteps);
     let step = 0;
 
@@ -431,12 +435,12 @@ export async function startEmotionPipeline(
 
       // --- Neutral: upscale original (unmasked) image directly, no inpaint ---
       const originalBuffer = await readFile(inputPath);
-      for (let round = 0; round < totalSeeds; round++) {
+      for (let round = 0; round < NEUTRAL_UPSCALE_ROUNDS; round++) {
         if (isStopped()) break;
         const seedNeutral = Math.floor(Math.random() * 1e15);
         const neutralUploadName = `neutral_${baseName}_r${round}.png`;
         const dimsNeutral = getPngDimensions(originalBuffer);
-        addLog(jobId, `Neutral ${round + 1}/${totalSeeds}: Upscale for ${baseName}`);
+        addLog(jobId, `Neutral: Upscale for ${baseName} (1회, 시드 횟수 설정 무관)`);
         const neutralResult = await runWorkflowWithUpload(
           comfy,
           originalBuffer,

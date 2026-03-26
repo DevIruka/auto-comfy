@@ -4,6 +4,8 @@ import ImageBatchProcessor from "./components/ImageBatchProcessor";
 import BannerProcessor from "./components/BannerProcessor";
 import AnchorImageProcessor from "./components/AnchorImageProcessor";
 import EmotionPipeline from "./components/EmotionPipeline";
+import WorkspaceSelector from "./components/WorkspaceSelector";
+import WorkspaceFolderPanel from "./components/WorkspaceFolderPanel";
 import { comfyClient, type ComfyInstanceInfo } from "./api/comfy-client";
 import "./App.css";
 
@@ -267,7 +269,11 @@ function App() {
             마스킹 + 인페인팅
           </button>
         </div>
-        <PodManager />
+        <div className="app-nav-tools">
+          <WorkspaceSelector />
+          <WorkspaceFolderPanel />
+          <PodManager />
+        </div>
       </nav>
 
       <main className="app-main">

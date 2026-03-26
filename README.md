@@ -82,6 +82,16 @@ FRONTEND_URL=http://localhost:5174
 DEFAULT_OUTPUT_FOLDER_PATH=./output
 ```
 
+**캐릭터 작업 폴더 (Google Drive for desktop 등):**
+
+실사용 시 Drive가 마운트된 **절대 경로**를 지정하는 것을 권장합니다. 미설정이면 `backend/workspace`를 루트로 씁니다.
+
+```env
+PROJECT_DRIVE_ROOT=G:\My Drive\내프로젝트\캐릭터작업
+```
+
+앱 상단에서 캐릭터·스팟을 고르면 이 루트 아래 `캐릭터/스팟/성인용 이미지` 등 하위 경로가 자동으로 잡힙니다.
+
 ### 프론트엔드 (.env)
 
 ```env

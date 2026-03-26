@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { comfyClient, type ComfyInstanceInfo } from "../api/comfy-client";
 import PresetPicker from "./PresetPicker";
 import type { CharacterPreset } from "../api/presets-client";
+import { useWorkspace } from "../context/WorkspaceContext";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3002";
 
@@ -57,9 +58,10 @@ const DEFAULT_LORAS: LoraSlot[] = [
 ];
 
 export default function EmotionPipeline() {
+  const { paths, workspaceReady, resolveError } = useWorkspace();
+  const folderPath = paths?.emotionImages ?? "";
   const [instances, setInstances] = useState<ComfyInstanceInfo[]>([]);
   const [selectedInstance, setSelectedInstance] = useState("");
-  const [folderPath, setFolderPath] = useState("");
   const [promptBlocks, setPromptBlocks] = useState<PromptBlocks>(defaultBlocks);
   const [loraList, setLoraList] = useState<string[]>([]);
   const [loraSlots, setLoraSlots] = useState<LoraSlot[]>(() => JSON.parse(JSON.stringify(DEFAULT_LORAS)));
@@ -187,8 +189,11 @@ export default function EmotionPipeline() {
   };
 
   const handleStart = async () => {
-    if (!folderPath.trim()) {
-      setError("이미지 폴더 경로를 입력하세요 (서버에서 접근 가능한 경로)");
+    if (!workspaceReady || !folderPath.trim()) {
+      setError(
+        resolveError ||
+          "상단에서 작업 공간(캐릭터·스팟)을 선택하세요. 작업 루트는 감정별 이미지 폴더입니다.",
+      );
       return;
     }
     if (!selectedInstance) {
@@ -246,8 +251,8 @@ export default function EmotionPipeline() {
       <header className="emotion-pipeline-header">
         <h1>Emotion Inpaint + Upscale Pipeline</h1>
         <p>
-          이미지 폴더를 스캔 → 얼굴 마스킹 → 4종 감정(Happy, Aroused, Sad, Angry)별 Inpaint → 업스케일(시드 N회) → Emotions/감정별 폴더에 저장.
-          서버에서 접근 가능한 폴더 경로를 입력하세요. 작업은 큐에 쌓이며 순서대로 실행됩니다.
+          작업 공간의 <strong>감정별 이미지</strong> 폴더를 루트로 스캔 → 얼굴 마스킹 → Neutral은 업스케일 1회 고정 → 4종 감정별 Inpaint → 업스케일(시드 N회) → 같은 트리 아래에 결과 저장.
+          상단에서 캐릭터·스팟을 선택하면 경로가 자동으로 맞춰집니다. 작업은 큐에 쌓이며 순서대로 실행됩니다.
         </p>
       </header>
 
@@ -272,14 +277,10 @@ export default function EmotionPipeline() {
 
       <div className="emotion-pipeline-card">
         <div className="form-group">
-          <label>이미지 폴더 경로</label>
-          <input
-            type="text"
-            value={folderPath}
-            onChange={(e) => setFolderPath(e.target.value)}
-            placeholder="예: c:\Users\...\이미지\침실"
-            disabled={loading}
-          />
+          <label>작업 루트 (감정별 이미지)</label>
+          <div className="ib-readonly-path" title={folderPath}>
+            {workspaceReady ? folderPath : "작업 공간을 선택하세요"}
+          </div>
           <p className="form-hint">
             스캔 폴더(또는 작업 루트)에 <code>masked</code> 폴더가 있고 그 안에 이미지가 있으면
             얼굴 마스킹 단계는 건너뛰고, 해당 이미지로 바로 인페인팅합니다. 파일명은 자동 마스킹 결과와
@@ -416,7 +417,7 @@ export default function EmotionPipeline() {
         </div>
 
         <div className="form-group">
-          <label>업스케일 시드 횟수 (최소 3)</label>
+          <label>업스케일 시드 횟수 (최소 3, Neutral 제외)</label>
           <input
             type="number"
             min={3}
@@ -441,7 +442,11 @@ export default function EmotionPipeline() {
         {error && <div className="form-error">{error}</div>}
 
         <div className="button-row">
-          <button type="button" onClick={handleStart} disabled={loading}>
+          <button
+            type="button"
+            onClick={handleStart}
+            disabled={loading || !workspaceReady}
+          >
             {loading ? "큐에 추가 중..." : "파이프라인 큐에 추가"}
           </button>
         </div>

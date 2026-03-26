@@ -12,6 +12,7 @@ import {
 } from "../api/banner-batch-client";
 import PresetPicker from "./PresetPicker";
 import type { CharacterPreset } from "../api/presets-client";
+import { useWorkspace } from "../context/WorkspaceContext";
 import "./BannerProcessor.css";
 
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3002/ws";
@@ -79,7 +80,8 @@ export default function BannerProcessor() {
 
   const [batchSize, setBatchSize] = useState(4);
   const [runsPerCombo, setRunsPerCombo] = useState(3);
-  const [outputPath, setOutputPath] = useState("");
+  const { paths, workspaceReady, resolveError } = useWorkspace();
+  const outputPath = paths?.bannerPath ?? "";
 
   const [queueState, setQueueState] = useState<BannerBatchQueueState | null>(
     null,
@@ -219,8 +221,11 @@ export default function BannerProcessor() {
 
   const handleStart = async () => {
     setError(null);
-    if (!outputPath) {
-      setError("저장 경로를 입력하세요.");
+    if (!workspaceReady || !outputPath) {
+      setError(
+        resolveError ||
+          "상단에서 작업 공간(캐릭터·스팟)을 선택하고 경로가 확인된 뒤 실행하세요.",
+      );
       return;
     }
     try {
@@ -556,14 +561,10 @@ export default function BannerProcessor() {
           </div>
 
           <div className="ib-section">
-            <label className="ib-label">Output Path</label>
-            <input
-              type="text"
-              value={outputPath}
-              onChange={(e) => setOutputPath(e.target.value)}
-              className="ib-input"
-              placeholder="C:\output\banners"
-            />
+            <label className="ib-label">저장 위치 (캐릭터/배너)</label>
+            <div className="ib-readonly-path" title={outputPath}>
+              {workspaceReady ? outputPath : "작업 공간을 선택하세요"}
+            </div>
           </div>
         </div>
 
@@ -580,7 +581,11 @@ export default function BannerProcessor() {
           )}
 
           <div className="ib-actions">
-            <button className="ib-btn-primary" onClick={handleStart}>
+            <button
+              className="ib-btn-primary"
+              onClick={handleStart}
+              disabled={!workspaceReady}
+            >
               Start Batch
             </button>
             {isRunning && (
