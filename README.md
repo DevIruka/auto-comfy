@@ -92,6 +92,8 @@ PROJECT_DRIVE_ROOT=G:\My Drive\내프로젝트\캐릭터작업
 
 앱 상단에서 캐릭터·스팟을 고르면 이 루트 아래 `캐릭터/스팟/성인용 이미지` 등 하위 경로가 자동으로 잡힙니다.
 
+**일반 영상(Seedance) 탭:** 백엔드 `.env`에 `ARK_API_KEY`와 `SEEDANCE_MODEL_ID`(또는 `_1`~`_3`)를 넣습니다. API는 `/api/seedance`로 붙어 있으며, ComfyUI와 같은 Node 서버에서 동작합니다. 생성 요청은 BytePlus 쪽 처리 시간 동안 HTTP 연결이 길게 유지될 수 있으므로, 동시에 너무 많은 생성을 열어 두지 않는 것이 좋습니다.
+
 ### 프론트엔드 (.env)
 
 ```env

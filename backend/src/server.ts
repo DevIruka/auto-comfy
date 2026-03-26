@@ -15,6 +15,7 @@ import faceMaskRouter from "./routes/face-mask.routes.js";
 import emotionPipelineRouter from "./routes/emotion-pipeline.routes.js";
 import presetsRouter from "./routes/presets.routes.js";
 import workspaceRouter from "./routes/workspace.routes.js";
+import { createSeedanceRouter } from "./seedance/createSeedanceRouter.js";
 import { setupWebSocket } from "./routes/websocket.routes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -53,6 +54,7 @@ app.use("/api/tools/face-mask", faceMaskRouter);
 app.use("/api/emotion-pipeline", emotionPipelineRouter);
 app.use("/api/presets", presetsRouter);
 app.use("/api/workspace", workspaceRouter);
+app.use("/api/seedance", createSeedanceRouter());
 
 // Error handling
 app.use(errorHandler);

@@ -6,6 +6,7 @@ import AnchorImageProcessor from "./components/AnchorImageProcessor";
 import EmotionPipeline from "./components/EmotionPipeline";
 import WorkspaceSelector from "./components/WorkspaceSelector";
 import WorkspaceFolderPanel from "./components/WorkspaceFolderPanel";
+import { SeedanceHost } from "./seedance/SeedanceHost";
 import { comfyClient, type ComfyInstanceInfo } from "./api/comfy-client";
 import "./App.css";
 
@@ -231,8 +232,17 @@ function PodManager() {
 
 function App() {
   const [activeTab, setActiveTab] = useState<
-    "batch" | "imageBatch" | "banner" | "anchor" | "emotionPipeline"
+    | "batch"
+    | "imageBatch"
+    | "banner"
+    | "anchor"
+    | "emotionPipeline"
+    | "seedanceSingle"
+    | "seedanceAutomation"
   >("imageBatch");
+
+  const seedanceOpen =
+    activeTab === "seedanceSingle" || activeTab === "seedanceAutomation";
 
   return (
     <div className="app-container">
@@ -263,6 +273,18 @@ function App() {
             성인용 영상 자동화
           </button>
           <button
+            className={`nav-tab ${activeTab === "seedanceSingle" ? "active" : ""}`}
+            onClick={() => setActiveTab("seedanceSingle")}
+          >
+            단일 일반 영상
+          </button>
+          <button
+            className={`nav-tab ${activeTab === "seedanceAutomation" ? "active" : ""}`}
+            onClick={() => setActiveTab("seedanceAutomation")}
+          >
+            일반 영상 자동화
+          </button>
+          <button
             className={`nav-tab ${activeTab === "emotionPipeline" ? "active" : ""}`}
             onClick={() => setActiveTab("emotionPipeline")}
           >
@@ -282,6 +304,11 @@ function App() {
         {activeTab === "anchor" && <AnchorImageProcessor />}
         {activeTab === "batch" && <BatchProcessor />}
         {activeTab === "emotionPipeline" && <EmotionPipeline />}
+        {seedanceOpen && (
+          <SeedanceHost
+            view={activeTab === "seedanceSingle" ? "single" : "automation"}
+          />
+        )}
       </main>
     </div>
   );
