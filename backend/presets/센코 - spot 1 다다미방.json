@@ -1,0 +1,42 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  "styleTrigger": "ct_s3nko, ",
+  "character": "1girl, solo, long golden hair, fox ears, bright yellow eyes, small petite body, nine golden fox tails, ",
+  "outfit": "topless, no bras, nipple visible, maebari, black maebari, small maebari,",
+  "backgroundPositive": "sunlit tatami room, shoji screens with light gaps, golden afternoon sunlight, fluffy bedding, old TV on table, traditional cozy hall, warm natural light, lived-in japanese interior, masterpiece, best quality, highres",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, \n\noutdoor, laboratory, office, studio, nightclub, dark room, harsh shadows, cluttered room, messy room, dirty, old furniture, cheap looking",
+  "prefixPrompt": "A beautiful anime girl golden hair, small breast, ",
+  "compositionPose": "looking at viewer, body facing forward, cowboy shot, \n\nsitting, sitting on floor, ",
+  "anchorAspect": "portrait",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "senko.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "센코 - spot 1 다다미방",
+  "createdAt": "2026-03-25T08:33:36.690Z",
+  "updatedAt": "2026-03-25T08:33:36.690Z"
+}
