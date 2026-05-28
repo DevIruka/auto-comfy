@@ -1,10 +1,11 @@
 {
-    "pose" : {
-        "Standing Pose" : "looking at viewer, facing forward, cowboy shot, standing,",
-        "Lying Down" : "lying,"
-    },
-    "gesture" : {
-        "Seductive Gesture" : "seducing gesture, seductive gesture,",
-        "Cunnilingus Gesture" : "cunnilingus gesture, v over mouth, tongue out, tongue, v, saliva, blush,"
-    }
+  "pose": {
+    "Standing Pose": "looking at viewer, facing forward, cowboy shot, standing,",
+    "Lying Down": "lying,"
+  },
+  "gesture": {},
+  "_comment": {
+    "Seductive Gesture": "seducing gesture, seductive gesture,",
+    "Cunnilingus Gesture": "cunnilingus gesture, v over mouth, tongue out, tongue, v, saliva, blush,"
+  }
 }

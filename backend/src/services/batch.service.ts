@@ -8,8 +8,9 @@ import { createWanWorkflow } from "../utils/workflow-helpers.js";
 import { runPodService } from "./runpod.service.js";
 import { podUsageTracker } from "./pod-usage-tracker.service.js";
 import { instanceQueueManager } from "./instance-queue-manager.service.js";
+import { readBatchVideoSettings } from "./batch-video-settings.service.js";
 
-// Fixed seeds for batch processing
+// Fixed seeds for batch processing (use first N by persisted fixedSeedCount)
 const FIXED_SEEDS = [625130800946143, 625130800946142, 625130800946144];
 
 export interface BatchJob {
@@ -17,6 +18,8 @@ export interface BatchJob {
   folderPath: string;
   outputFolderPath: string;
   prefixPrompt: string;
+  /** Number of fixed seeds per image (2 or 3); persisted server-side. */
+  fixedSeedCount: 2 | 3;
   includeRandomSeeds: boolean;
   autoStopPod: boolean;
   comfyInstanceId: string;
@@ -166,8 +169,9 @@ class BatchService {
     // Scan folder to get image count
     const imageTasks = await this.scanFolder(folderPath);
 
-    // Calculate total videos: 3 fixed seeds + 2 random seeds (if enabled)
-    const videosPerImage = includeRandomSeeds ? 5 : 3;
+    const { fixedSeedCount } = await readBatchVideoSettings();
+    const videosPerImage =
+      fixedSeedCount + (includeRandomSeeds ? 2 : 0);
 
     const job: BatchJob = {
       id: jobId,
@@ -177,6 +181,7 @@ class BatchService {
         process.env.DEFAULT_OUTPUT_FOLDER_PATH ||
         "./output",
       prefixPrompt,
+      fixedSeedCount,
       includeRandomSeeds,
       autoStopPod,
       comfyInstanceId: instanceId,
@@ -282,7 +287,6 @@ class BatchService {
           }`,
         );
 
-        // Process this image (generate 5 videos)
         await this.processImageTask(jobId, imageTask, comfyInstance);
       }
 
@@ -329,7 +333,7 @@ class BatchService {
   }
 
   /**
-   * Process single image (generate 3 or 5 videos based on includeRandomSeeds)
+   * Process single image: fixedSeedCount fixed seeds + optional 2 random seeds.
    */
   private async processImageTask(
     jobId: string,
@@ -374,8 +378,9 @@ class BatchService {
         f.endsWith(".mkv"),
       ).length;
 
-      // Generate videos: 3 fixed seeds + 2 random seeds (optional)
-      const videosToGenerate = job.includeRandomSeeds ? 5 : 3;
+      const fixedCount = job.fixedSeedCount;
+      const videosToGenerate =
+        fixedCount + (job.includeRandomSeeds ? 2 : 0);
       for (let i = 0; i < videosToGenerate; i++) {
         // Check pause/stop
         while (this.isPaused.get(jobId)) {
@@ -387,8 +392,9 @@ class BatchService {
 
         job.currentVideoIndex = i + 1;
 
-        const seed = i < 3 ? FIXED_SEEDS[i] : this.generateRandomSeed();
-        const seedType = i < 3 ? "fixed" : "random";
+        const seed =
+          i < fixedCount ? FIXED_SEEDS[i] : this.generateRandomSeed();
+        const seedType = i < fixedCount ? "fixed" : "random";
 
         this.addLog(
           jobId,
@@ -481,9 +487,10 @@ class BatchService {
           currentImageIndex: job.currentImageIndex,
           totalImages: job.totalImages,
           currentVideoIndex: i + 1,
-          totalVideos: 5,
+          totalVideos: videosToGenerate,
           overallProgress: Math.round(
-            (((job.currentImageIndex - 1) * 5 + (i + 1)) / job.totalVideos) *
+            (((job.currentImageIndex - 1) * videosToGenerate + (i + 1)) /
+              job.totalVideos) *
               100,
           ),
           status: job.status,
@@ -492,7 +499,7 @@ class BatchService {
 
       this.addLog(
         jobId,
-        `Completed processing ${imageTask.imageName} (5 videos generated)`,
+        `Completed processing ${imageTask.imageName} (${videosToGenerate} videos generated)`,
       );
     } catch (error: any) {
       this.addLog(

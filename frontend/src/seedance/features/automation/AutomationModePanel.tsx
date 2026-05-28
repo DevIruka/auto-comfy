@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import PresetPicker from "../../../components/PresetPicker";
 import type { CharacterPreset } from "../../../api/presets-client";
+import { useWorkspace } from "../../../context/WorkspaceContext";
 import { AutomationProgressPanel } from "./AutomationProgressPanel";
 import { AutomationFolderPairsEditor } from "./AutomationFolderPairsEditor";
 import {
@@ -75,6 +76,8 @@ export function AutomationModePanel({
   onResumeQueues,
   onForceStopQueues,
 }: AutomationModePanelProps) {
+  const { character: wsCharacter, spot: wsSpot } = useWorkspace();
+  const workspacePresetName = wsCharacter.trim() && wsSpot.trim() ? `${wsCharacter.trim()} ${wsSpot.trim()}` : "";
   const [rootPathLoading, setRootPathLoading] = useState(false);
   const [rootPathMessage, setRootPathMessage] = useState("");
 
@@ -141,6 +144,8 @@ export function AutomationModePanel({
         <PresetPicker
           onLoad={handleAutomationPresetLoad}
           getCurrentSettings={getAutomationPresetSettings}
+          preferredPresetName={workspacePresetName}
+          autoLoadOnPreferredChange
         />
       </div>
 

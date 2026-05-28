@@ -1,0 +1,42 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  "styleTrigger": "an-94, ",
+  "character": "1girl, solo, long hair, grey hair, blonde hair, aqua eyes, small breast, ",
+  "outfit": "white lingerie, thighhighs, see-through, skirt, bare shoulders, bow, black choker, covered nipples, frightened,",
+  "backgroundPositive": "public restroom interior, white tiles, fluorescent lighting, mirror wall, stall doors, clean modern university building bathroom, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, \n\nblurry, low quality, watermark, text, people, humans, crowds, outdoor, messy, blood, horror,",
+  "prefixPrompt": "A beautiful anime woman with blonde hair, blue eyes,  ",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, standing, standing on floor, closed mouth, ",
+  "anchorAspect": "portrait",
+  "comfyInstanceId": "comfy5",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "an94.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "See-Through Cheongsam.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "100 한예린 spot 2 공중 화장실",
+  "updatedAt": "2026-04-29T00:47:18.919Z"
+}

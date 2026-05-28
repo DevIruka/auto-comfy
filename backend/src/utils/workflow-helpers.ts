@@ -395,11 +395,14 @@ export function extractImageUrls(
 export interface SdxlWaiPromptBlocks {
   styleTrigger: string;
   character: string;
+  outfit?: string;
   pose: string;
   emotion: string;
   background: string;
   /** Negative 보조: 배경 및 자잘한 걸 고치기 위한 프롬프트 (고정 negative 뒤에 붙음) */
   negativeExtra?: string;
+  /** 프리셋에서 로드하는 고정 접두 프롬프트. 비어있으면 DEFAULT_FIXED_PREFIX 사용 */
+  fixedPrefix?: string;
 }
 
 /** LoRA slot for SDXL WAI (node 1289): up to 9 slots, toggle + name + weights */
@@ -424,10 +427,15 @@ const DEFAULT_FIXED_NEGATIVE =
  * Build SDXL WAI positive prompt (text_b) from blocks. Order: style fixed, then //프롬프트// = character, pose, emotion, background, then fixed suffix.
  */
 function buildSdxlWaiTextB(blocks: SdxlWaiPromptBlocks): string {
-  const promptMiddle = [blocks.character, blocks.pose, blocks.emotion, blocks.background]
+  const stylePart = (blocks.styleTrigger || "").trim();
+  const promptMiddle = [blocks.character, blocks.outfit, blocks.pose, blocks.emotion, blocks.background]
     .filter(Boolean)
     .join("\n\n");
-  return `//고정//\n${DEFAULT_FIXED_PREFIX}\n//선택//\n\n//프롬프트//\n\n${promptMiddle}\n\n//선택//\n\n//고정//\n${DEFAULT_FIXED_SUFFIX}`;
+  const basePrefix = blocks.fixedPrefix !== undefined ? blocks.fixedPrefix.trim() : DEFAULT_FIXED_PREFIX;
+  const fixedPrefix = stylePart
+    ? `${basePrefix}\n${stylePart}`
+    : basePrefix;
+  return `//고정//\n${fixedPrefix}\n//선택//\n\n//프롬프트//\n\n${promptMiddle}\n\n//선택//\n\n//고정//\n${DEFAULT_FIXED_SUFFIX}`;
 }
 
 /**

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { batchClient } from "../api/batch-client";
 import type { BatchJob, ImageTask } from "../api/batch-client";
 import {
@@ -21,7 +21,8 @@ interface FolderPair {
 }
 
 export default function BatchProcessor() {
-  const { paths, workspaceReady } = useWorkspace();
+  const { character: wsCharacter, spot: wsSpot, paths, workspaceReady } = useWorkspace();
+  const workspacePresetName = wsCharacter.trim() && wsSpot.trim() ? `${wsCharacter.trim()} ${wsSpot.trim()}` : "";
   const [folderPairs, setFolderPairs] = useState<FolderPair[]>([
     {
       id: crypto.randomUUID(),
@@ -50,6 +51,11 @@ export default function BatchProcessor() {
   const [prefixPrompt, setPrefixPrompt] = useState("");
   const [includeRandomSeeds, setIncludeRandomSeeds] = useState(false);
   const [autoStopPod, setAutoStopPod] = useState(false);
+  /** Persisted on server (backend/data/batch-video-settings.json). */
+  const [fixedSeedCount, setFixedSeedCount] = useState<2 | 3>(2);
+  const [batchSettingsError, setBatchSettingsError] = useState<string | null>(
+    null,
+  );
   const [comfyInstances, setComfyInstances] = useState<ComfyInstanceInfo[]>([]);
   const [selectedComfyInstanceId, setSelectedComfyInstanceId] = useState("");
   const [jobs, setJobs] = useState<BatchJob[]>([]);
@@ -58,6 +64,40 @@ export default function BatchProcessor() {
   const [logs, setLogs] = useState<string[]>([]);
 
   const { progress, isConnected } = useBatchProgress();
+
+  const videosPerImage = useMemo(
+    () => fixedSeedCount + (includeRandomSeeds ? 2 : 0),
+    [fixedSeedCount, includeRandomSeeds],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    batchClient
+      .getBatchVideoSettings()
+      .then((s) => {
+        if (!cancelled) setFixedSeedCount(s.fixedSeedCount);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setBatchSettingsError(
+            e instanceof Error ? e.message : String(e),
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleFixedSeedCountChange = async (n: 2 | 3) => {
+    setBatchSettingsError(null);
+    setFixedSeedCount(n);
+    try {
+      await batchClient.updateBatchVideoSettings(n);
+    } catch (e) {
+      setBatchSettingsError(e instanceof Error ? e.message : String(e));
+    }
+  };
 
   // 현재 진행 중인 작업 (WS progress.jobId와 일치하는 job)
   const currentJob = progress.jobId
@@ -104,9 +144,10 @@ export default function BatchProcessor() {
 
   const handlePresetLoad = (preset: CharacterPreset) => {
     if (preset.prefixPrompt !== undefined) setPrefixPrompt(preset.prefixPrompt);
+    if (preset.comfyInstanceId !== undefined) setSelectedComfyInstanceId(preset.comfyInstanceId);
   };
 
-  const getCurrentSettingsForPreset = () => ({ prefixPrompt });
+  const getCurrentSettingsForPreset = () => ({ prefixPrompt, comfyInstanceId: selectedComfyInstanceId });
 
   const addLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -306,10 +347,13 @@ export default function BatchProcessor() {
 
     // Average 250 seconds (4 minutes 10 seconds) per video
     const avgSecondsPerVideo = 250;
-    const videosRemaining =
-      progress.totalVideos -
-      (progress.currentImageIndex - 1) * 5 -
+    const perImage = videosPerImage;
+    const totalVideosJob =
+      progress.totalImages > 0 ? progress.totalImages * perImage : 0;
+    const completedVideos =
+      (progress.currentImageIndex - 1) * perImage +
       progress.currentVideoIndex;
+    const videosRemaining = Math.max(0, totalVideosJob - completedVideos);
     const secondsRemaining = videosRemaining * avgSecondsPerVideo;
 
     const hours = Math.floor(secondsRemaining / 3600);
@@ -327,7 +371,12 @@ export default function BatchProcessor() {
       <header className="batch-header">
         <h1>🎬 Batch Video Generator</h1>
         <p>자동 배치 애니메이션 생성</p>
-        <PresetPicker onLoad={handlePresetLoad} getCurrentSettings={getCurrentSettingsForPreset} />
+        <PresetPicker
+          onLoad={handlePresetLoad}
+          getCurrentSettings={getCurrentSettingsForPreset}
+          preferredPresetName={workspacePresetName}
+          autoLoadOnPreferredChange
+        />
         <div className="connection-status">
           {isConnected ? (
             <span className="status-connected">🟢 연결됨</span>
@@ -365,6 +414,40 @@ export default function BatchProcessor() {
           </div>
 
           <div className="form-group">
+            <span>이미지당 고정 시드 개수 (서버에 저장됨)</span>
+            <div className="preset-outfit-mode" style={{ marginTop: "8px" }}>
+              <label className="preset-outfit-radio">
+                <input
+                  type="radio"
+                  name="batchFixedSeeds"
+                  checked={fixedSeedCount === 2}
+                  onChange={() => void handleFixedSeedCountChange(2)}
+                  disabled={loading}
+                />
+                2개 (기본)
+              </label>
+              <label className="preset-outfit-radio">
+                <input
+                  type="radio"
+                  name="batchFixedSeeds"
+                  checked={fixedSeedCount === 3}
+                  onChange={() => void handleFixedSeedCountChange(3)}
+                  disabled={loading}
+                />
+                3개
+              </label>
+            </div>
+            <p className="helper-text" style={{ marginTop: "6px" }}>
+              새로고침·서버 재시작 후에도 유지됩니다. 다음에 시작하는 배치 작업부터 적용됩니다.
+            </p>
+            {batchSettingsError && (
+              <p className="form-error" style={{ marginTop: "6px" }}>
+                {batchSettingsError}
+              </p>
+            )}
+          </div>
+
+          <div className="form-group">
             <label htmlFor="prefix-prompt">접두 프롬프트 (캐릭터 설명)</label>
             <textarea
               id="prefix-prompt"
@@ -390,8 +473,8 @@ export default function BatchProcessor() {
               </span>
               <div className="toggle-description">
                 {includeRandomSeeds
-                  ? "✅ 고정 시드 3개 + 랜덤 시드 2개 = 총 5개 영상 생성"
-                  : "기본: 고정 시드 3개만 생성"}
+                  ? `✅ 고정 시드 ${fixedSeedCount}개 + 랜덤 시드 2개 = 총 ${fixedSeedCount + 2}개 영상 생성`
+                  : `기본: 고정 시드 ${fixedSeedCount}개만 생성`}
               </div>
             </label>
           </div>
@@ -474,7 +557,7 @@ export default function BatchProcessor() {
                     <p>✅ {pair.scannedImages.length}개 이미지</p>
                     <p>
                       📹{" "}
-                      {pair.scannedImages.length * (includeRandomSeeds ? 5 : 3)}
+                      {pair.scannedImages.length * videosPerImage}
                       개 영상 예상
                     </p>
                     <p>
@@ -482,7 +565,7 @@ export default function BatchProcessor() {
                       {(() => {
                         const totalVideos =
                           pair.scannedImages.length *
-                          (includeRandomSeeds ? 5 : 3);
+                          videosPerImage;
                         const totalSeconds = totalVideos * 250;
                         const hours = Math.floor(totalSeconds / 3600);
                         const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -509,7 +592,7 @@ export default function BatchProcessor() {
               {folderPairs.reduce(
                 (sum, pair) => sum + pair.scannedImages.length,
                 0,
-              ) * (includeRandomSeeds ? 5 : 3)}
+              ) * videosPerImage}
               개
             </p>
             <p>
@@ -519,7 +602,7 @@ export default function BatchProcessor() {
                   folderPairs.reduce(
                     (sum, pair) => sum + pair.scannedImages.length,
                     0,
-                  ) * (includeRandomSeeds ? 5 : 3);
+                  ) * videosPerImage;
                 const totalSeconds = totalVideos * 250;
                 const hours = Math.floor(totalSeconds / 3600);
                 const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -642,7 +725,12 @@ export default function BatchProcessor() {
               </div>
               <div className="info-row">
                 <span>현재 영상:</span>
-                <span>{progress.currentVideoIndex}/5</span>
+                <span>
+                  {progress.currentVideoIndex}/
+                  {progress.totalVideos > 0
+                    ? progress.totalVideos
+                    : videosPerImage}
+                </span>
               </div>
               {progress.currentVideoProgressMax > 0 && (
                 <div className="info-row">

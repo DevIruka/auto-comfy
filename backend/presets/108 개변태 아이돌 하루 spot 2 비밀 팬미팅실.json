@@ -1,0 +1,42 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,anime screencap, anime coloring, flat color, 2020s, ",
+  "styleTrigger": "haru_cnr,",
+  "character": "1girl, large breasts, red hair, shiny skin, short hair, blue eyes, ",
+  "outfit": "Fishnet bodystocking, fishnets, no bra, nipple visible, ",
+  "backgroundPositive": "upscale private lounge interior, host-style night club room mood, dim ambient lighting, warm amber rim light and soft magenta accent glow, velvet booth seating, low black lacquer table, polished dark wood paneling, subtle mirrored wall accents, back bar shelf with glass silhouettes and bottles without readable labels, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, \n\nblurry, low quality, watermark, messy room, croweded, \n",
+  "prefixPrompt": "A beautiful anime woman with red hair, blue eyes,  ",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, sitting, sitting on sofa, slight smile, arms at sides, ",
+  "anchorAspect": "portrait",
+  "comfyInstanceId": "comfy4",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "haru_oideyo.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "Fishnet bodystocking.safetensors",
+      "strengthModel": 0.7,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "108 개변태 아이돌 하루 spot 2 비밀 팬미팅실",
+  "updatedAt": "2026-05-06T05:19:43.856Z"
+}

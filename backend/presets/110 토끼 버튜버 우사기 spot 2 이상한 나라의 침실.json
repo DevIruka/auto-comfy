@@ -1,0 +1,42 @@
+{
+  "fixedPrefix": "best quality,",
+  "styleTrigger": "malice pawn white rabbit",
+  "character": "1girl, solo, m∀lice pawn white rabbit, rabbit girl, twintails, red heart facial mark, large breast, ",
+  "outfit": "micro bikini, red micro bikini, garter belt, thighhighs,",
+  "backgroundPositive": "Wonderland themed bedroom interior, surreal curved furniture, soft lantern glow, patterned velvet bedding, oversized pocket watch decor motifs subtle, cozy intimate scale, fantasy pastel accents, empty room, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "throne hall wide shot, concert crowd, office fluorescent, hospital, gore, messy hoarding, readable logos, watermark, text, blurry, low quality,",
+  "prefixPrompt": "A beautiful anime woman with white hair, pink eyes,  ",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, standing, standing on ground, arms at sides, slight smile, body facing forward, closed mouth, ",
+  "anchorAspect": "portrait",
+  "comfyInstanceId": "comfy3",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "White Rabbit.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "garter.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "110 토끼 버튜버 우사기 spot 2 이상한 나라의 침실",
+  "updatedAt": "2026-05-11T06:40:10.629Z"
+}

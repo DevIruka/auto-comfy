@@ -22,32 +22,15 @@ auto-comfy/
 
 ## 🚀 빠른 시작
 
-### 1. 백엔드 설정
-
-```bash
+# 백엔드
 cd backend
 npm install
-
-# .env 파일 생성
-cp .env.example .env
-# .env 파일을 편집하여 RunPod ComfyUI URL 입력
-
-# 개발 서버 실행
 npm run dev
-```
 
-### 2. 프론트엔드 설정
-
-```bash
+# 프론트 (다른 터미널)
 cd frontend
 npm install
-
-# .env 파일 생성 (선택사항)
-cp .env.example .env
-
-# 개발 서버 실행
-npm run dev
-```
+npm run dev            # build 생략 가능
 
 ## 🔧 환경 설정
 

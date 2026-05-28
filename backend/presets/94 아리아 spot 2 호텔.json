@@ -1,0 +1,42 @@
+{
+  "fixedPrefix": "",
+  "styleTrigger": "aglaea \\(honkai: star rail\\), mimoza \\(96mimo414\\), rei \\(sanbonzakura\\), mochi \\(circle rin\\), (rhasta, yonchan, watao, minaba hideo:0.95),",
+  "character": "1girl, solo, aglaea \\(honkai: star rail\\),  breast tattoo, ",
+  "outfit": "micro bikini, white micro bikini, garter belt, thighhighs,",
+  "backgroundPositive": "boutique hotel room interior, king bed with neutral linens, soft ambient lighting, large window with curtains partly drawn, night city bokeh optional, modern minimalist furniture, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, \n\nblurry, low quality, watermark, dirty room, cluttered, office, school, hospital, crowded, ",
+  "prefixPrompt": "A beautiful anime girl with blonde hair, ",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, sitting, sitting on bed, closed mouth, ",
+  "anchorAspect": "portrait",
+  "comfyInstanceId": "comfy7",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "aglaea.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "garter.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "94 아리아 spot 2 호텔",
+  "updatedAt": "2026-04-21T06:22:06.879Z"
+}

@@ -1,0 +1,42 @@
+{
+  "fixedPrefix": "",
+  "styleTrigger": "1yr1c31x314st, ",
+  "character": "1girl, solo, brown eyes, dark_hair, bangs, single braid, hair ornament, large breast, ",
+  "outfit": "sweater, skirt, pantyhose, collarbone, cleavage, bare shoulders, covered nipples, ",
+  "backgroundPositive": "wooden veranda, rural house exterior, summer day, shaded eaves, sliding door frame, garden greenery, warm sunlight, countryside calm, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, \n\nblurry, low quality, watermark, signature, urban skyline, office, classroom, winter snow, night only, crowded, ",
+  "prefixPrompt": "A beautiful anime woman with dark hair, brown eyes, ",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, sitting, sitting on floor, closed mouth, ",
+  "anchorAspect": "portrait",
+  "comfyInstanceId": "comfy2",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "blast.safetensors",
+      "strengthModel": 0.8,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "99 강하은 spot 1 시골집 툇마루",
+  "updatedAt": "2026-04-27T05:23:35.502Z"
+}

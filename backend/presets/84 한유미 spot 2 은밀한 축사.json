@@ -1,0 +1,42 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  "styleTrigger": "uzaki yanagi,",
+  "character": "1girl, solo, blue eyes, mature woman, blonde hair, hair over eyes, long bangs, large breast, ",
+  "outfit": "cow horns, cow print bikini, cow print thighhighs, cow print gloves, cowbell, ",
+  "backgroundPositive": "dim barn interior, night, moonlight through wooden slats, hay stacks, metal milking equipment on wall, rustic posts, secluded private farm shed,",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, \n\nblurry, low quality, watermark, text, crowded, bright sunny pasture, modern city apartment,",
+  "prefixPrompt": "A beautiful anime girl with silver hair, blue eyes, ",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, spreading legs, kneeling, kneeling on ground, ",
+  "anchorAspect": "portrait",
+  "comfyInstanceId": "comfy3",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "uzaki.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "84 한유미 spot 2 은밀한 축사",
+  "updatedAt": "2026-04-10T08:43:41.372Z"
+}

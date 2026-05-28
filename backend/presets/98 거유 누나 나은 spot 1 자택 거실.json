@@ -1,0 +1,42 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  "styleTrigger": "tsukumiy@ @m@n@,",
+  "character": "1girl, solo, long black hair, dark brown eyes, voluptuous body, large breasts, big areola,",
+  "outfit": "oversized sleeveless tank top, white cotton panties, no bra, covered nipples, ",
+  "backgroundPositive": "interior, modern living room, large 85-inch TV, plush fabric sofa, wooden flooring, warm sunlight through windows, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, \n\nblurry, low quality, watermark, text, people, humans, figures, crowded, cluttered, dark, gloomy, outdated furniture, ",
+  "prefixPrompt": "A beautiful anime woman with long black hair, brown eyes, ",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, sitting, sitting on sofa, closed mouth, slight smile, ",
+  "anchorAspect": "portrait",
+  "comfyInstanceId": "comfy9",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "ichinomiya2.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "98 거유 누나 나은 spot 1 자택 거실",
+  "updatedAt": "2026-04-23T06:19:21.749Z"
+}

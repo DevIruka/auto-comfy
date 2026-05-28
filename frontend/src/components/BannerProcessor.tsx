@@ -80,8 +80,9 @@ export default function BannerProcessor() {
 
   const [batchSize, setBatchSize] = useState(4);
   const [runsPerCombo, setRunsPerCombo] = useState(3);
-  const { paths, workspaceReady, resolveError } = useWorkspace();
+  const { character: wsCharacter, spot: wsSpot, paths, workspaceReady, resolveError } = useWorkspace();
   const outputPath = paths?.bannerPath ?? "";
+  const workspacePresetName = wsCharacter.trim() && wsSpot.trim() ? `${wsCharacter.trim()} ${wsSpot.trim()}` : "";
 
   const [queueState, setQueueState] = useState<BannerBatchQueueState | null>(
     null,
@@ -94,7 +95,7 @@ export default function BannerProcessor() {
       .getComfyInstances()
       .then((list) => {
         setInstances(list);
-        if (list.length > 0) setSelectedInstance(list[0].id);
+        if (list.length > 0) setSelectedInstance((prev) => prev || list[0].id);
       })
       .catch(console.error);
   }, []);
@@ -179,6 +180,7 @@ export default function BannerProcessor() {
     if (preset.fixedNegative !== undefined) setFixedNegative(preset.fixedNegative);
     if (preset.backgroundNegative !== undefined) setBackgroundNegative(preset.backgroundNegative);
     if (preset.prefixPrompt !== undefined) setVideoPrefixPrompt(preset.prefixPrompt);
+    if (preset.comfyInstanceId !== undefined) setSelectedInstance(preset.comfyInstanceId);
     if (preset.loraSlots?.length) {
       setLoraSlots(preset.loraSlots.map((s) => ({
         enabled: s.enabled,
@@ -199,6 +201,7 @@ export default function BannerProcessor() {
     fixedNegative,
     backgroundNegative,
     prefixPrompt: videoPrefixPrompt,
+    comfyInstanceId: selectedInstance,
     loraSlots: loraSlots.map((s) => ({
       enabled: s.enabled,
       loraName: s.loraName,
@@ -281,7 +284,12 @@ export default function BannerProcessor() {
         <p>banner-config 기반 pose + gesture 조합 자동 생성</p>
       </header>
 
-      <PresetPicker onLoad={handlePresetLoad} getCurrentSettings={getCurrentSettingsForPreset} />
+      <PresetPicker
+        onLoad={handlePresetLoad}
+        getCurrentSettings={getCurrentSettingsForPreset}
+        preferredPresetName={workspacePresetName}
+        autoLoadOnPreferredChange
+      />
       <div className="video-prompt-for-preset">
         <button
           className="video-prompt-toggle"

@@ -1,0 +1,42 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  "styleTrigger": "mai_jsiko, mai_renjs,",
+  "character": "1girl, solo, long_hair, twin_braids, black_hair, black hair, purple_eyes,eyebrows_hidden_by_hair,round_eyewear,half-closed_eyes, large breast, ",
+  "outfit": "maid,apron, white_thighhighs, covered nipples, ",
+  "backgroundPositive": "indoors, western_interior, mansion, reception_room, luxury, elegant, high_ceiling, chandelier, wooden_floor, carpet, sofa, armchair, coffee_table, side_table, flower_vase, still_life, framed_painting, warm_lighting, soft_shadow, depth_of_field, polished_wood, refined_atmosphere, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, \n\noutdoor, outside, forest, nature, trees, beach, street, kitchen, bathroom, living room, different room, harsh lighting, simple background, plain background",
+  "prefixPrompt": "A beautiful anime girl with black hair, horns, purple eyes, glasses, ",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, standing, standing on floor, closed mouth, arms at sides, ",
+  "anchorAspect": "portrait",
+  "comfyInstanceId": "comfy3",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "jashin.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "garter.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "117 모범생 메이드 세리나 spot 1 대저택 응접실",
+  "updatedAt": "2026-05-27T04:46:35.652Z"
+}

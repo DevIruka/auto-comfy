@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   presetsClient,
   type CharacterPreset,
@@ -10,9 +10,18 @@ interface PresetPickerProps {
   onLoad: (preset: CharacterPreset) => void;
   /** Returns the current settings to be saved as a preset */
   getCurrentSettings: () => Omit<CharacterPreset, "name" | "createdAt" | "updatedAt">;
+  /** If set, prefer this preset selection when it exists (e.g. `${character} ${spot}`) */
+  preferredPresetName?: string;
+  /** If true, automatically loads preferred preset when it changes (silently ignores missing). */
+  autoLoadOnPreferredChange?: boolean;
 }
 
-export default function PresetPicker({ onLoad, getCurrentSettings }: PresetPickerProps) {
+export default function PresetPicker({
+  onLoad,
+  getCurrentSettings,
+  preferredPresetName,
+  autoLoadOnPreferredChange = false,
+}: PresetPickerProps) {
   const [presets, setPresets] = useState<PresetSummary[]>([]);
   const [selected, setSelected] = useState("");
   const [saveName, setSaveName] = useState("");
@@ -21,6 +30,7 @@ export default function PresetPicker({ onLoad, getCurrentSettings }: PresetPicke
   const [message, setMessage] = useState<string | null>(null);
   /** Preset name last successfully loaded via "불러오기" — used for overwrite save */
   const [lastLoadedPresetName, setLastLoadedPresetName] = useState<string | null>(null);
+  const lastAutoLoadedPreferred = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -30,6 +40,33 @@ export default function PresetPicker({ onLoad, getCurrentSettings }: PresetPicke
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    const p = (preferredPresetName || "").trim();
+    if (!p) return;
+
+    // Keep UI selection in sync
+    setSelected(p);
+
+    if (!autoLoadOnPreferredChange) return;
+    if (lastAutoLoadedPreferred.current === p) return;
+    lastAutoLoadedPreferred.current = p;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const preset = await presetsClient.getPreset(p);
+        if (cancelled) return;
+        onLoad(preset);
+        setLastLoadedPresetName(p);
+      } catch {
+        // Ignore missing preset or network errors for auto-load.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [preferredPresetName, autoLoadOnPreferredChange, onLoad]);
 
   const handleLoad = async () => {
     if (!selected) return;

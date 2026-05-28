@@ -1,5 +1,10 @@
 import { Router, Request, Response } from "express";
 import { batchService } from "../services/batch.service.js";
+import {
+  readBatchVideoSettings,
+  writeBatchVideoSettings,
+  type BatchFixedSeedCount,
+} from "../services/batch-video-settings.service.js";
 import { asyncHandler } from "../middleware/errorHandler.js";
 
 export const batchRouter = Router();
@@ -72,6 +77,37 @@ batchRouter.post(
       jobId: job.id,
       job,
     });
+  }),
+);
+
+/**
+ * GET /api/batch/settings — persisted video batch options (fixed seed count per image)
+ */
+batchRouter.get(
+  "/settings",
+  asyncHandler(async (_req: Request, res: Response) => {
+    const settings = await readBatchVideoSettings();
+    res.json({ success: true, data: settings });
+  }),
+);
+
+/**
+ * PUT /api/batch/settings — body: { fixedSeedCount: 2 | 3 }
+ */
+batchRouter.put(
+  "/settings",
+  asyncHandler(async (req: Request, res: Response) => {
+    const raw = req.body?.fixedSeedCount;
+    const n = typeof raw === "string" ? parseInt(raw, 10) : raw;
+    if (n !== 2 && n !== 3) {
+      res.status(400).json({
+        success: false,
+        error: "fixedSeedCount must be 2 or 3",
+      });
+      return;
+    }
+    const data = await writeBatchVideoSettings(n as BatchFixedSeedCount);
+    res.json({ success: true, data });
   }),
 );
 

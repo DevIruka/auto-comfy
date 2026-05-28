@@ -27,6 +27,8 @@ export interface CharacterPreset {
   compositionPose?: string;
   /** 앵커 이미지: portrait = 1024×1536, landscape = 1536×1024 (배너 lying down 규칙과 동일) */
   anchorAspect?: "portrait" | "landscape";
+  /** Last selected ComfyUI instance for image/video tasks (e.g. comfy1, comfy5). */
+  comfyInstanceId?: string;
 }
 
 export interface PresetSummary {

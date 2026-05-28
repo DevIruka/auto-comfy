@@ -1,0 +1,42 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  "styleTrigger": "mizuki_kotori_outfit3, ",
+  "character": "1girl, solo, short hair, green hair, two-tone hair, multicolored hair, single hair bun, hair ribbon, brown eyes, small breast, pointy breasts,",
+  "outfit": "one-piece dress, short dress, white dress, frilled dress ,heart necklace, cropped jacket, light blue jacket,rolled up sleeves,",
+  "backgroundPositive": "locker_room, locker, bench, metal_locker, tiled_floor, fluorescent_light, sports_equipment, towel, water_bottle, duffel_bag, bench_seat, private_room, soft_shadow, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red eyes, ",
+  "prefixPrompt": "A beautiful anime girl with green hair, brown eyes,",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, closed mouth, sitting, sitting on bench, closed mouth, ",
+  "anchorAspect": "portrait",
+  "comfyInstanceId": "comfy4",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "mizuki kotori.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "118 소꿉친구 치어리더 코요리 spot 2 치어리더 라커룸",
+  "updatedAt": "2026-05-27T06:58:59.264Z"
+}

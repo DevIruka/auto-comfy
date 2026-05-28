@@ -1,0 +1,41 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  "styleTrigger": "doumyouji kotetu, ",
+  "character": "doumyouji kotetu, 1girl, solo, adult, early 20s, white hair, yellow eyes ,dark skin, hair over one eye, slave rain, white hair, yellow eyes ,dark skin,",
+  "outfit": "heart hair ornament, black frills, shrug \\(clothing\\),black gloves, elbow gloves ,slingshot swimsuit, pubic tattoo,see-through skirt, pleated skirt, showgirl skirt,",
+  "backgroundPositive": "underground fortress, dark fantasy dungeon, crimson crystal pillars, glowing magic circles on floor, stone throne, dark crimson silk drapes, dim red ambient lighting, demonic atmosphere, gothic architecture, vast chamber,",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, hat,\n\nblurry, low quality, watermark, signature, text, people, humans, bright cheerful lighting, modern interior, outdoor, daytime, animals, crowds, clean white walls, minimalist, cozy",
+  "prefixPrompt": "A beautiful girl with white long hair, yellow eyes, dark skin",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, sitting, sitting on floor, ",
+  "anchorAspect": "portrait",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "Doumyouji Koutetu.safetensors",
+      "strengthModel": 0.8,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "레이나 spot 2 트라고에디아 지하 근거지",
+  "updatedAt": "2026-03-31T14:11:34.482Z"
+}

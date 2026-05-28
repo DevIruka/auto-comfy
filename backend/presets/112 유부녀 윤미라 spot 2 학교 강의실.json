@@ -1,0 +1,42 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  "styleTrigger": "igawa asagi, ",
+  "character": "1girl, mature female, curvy, shiny skin, long hair, blonde hair, hair between eyes, aqua eyes, tsurime, makeup, lipstick, pink lips, large breasts, wide hips, big areola, ",
+  "outfit": "updo, pearl hair ornament, braid, covered nipples, revealing clothes, see-through dress, red dress, navel, red nails, center opening, evening gown, ",
+  "backgroundPositive": "empty school classroom at night, dark corridor outside door crack faint light, student desks rows, chalkboard or whiteboard, tall windows night city glow or streetlamp outside, minimal interior lighting, abandoned school atmosphere, no people, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, \n\nbright daytime sunlight classroom, crowded students class in session, teachers office, gym stage, horror blood gore, nightclub neon party, messy hoarding, blurry, low quality, watermark, text, logo,",
+  "prefixPrompt": "A beautiful anime woman with blonde hair, ",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, closed mouth, slight smile, ",
+  "anchorAspect": "portrait",
+  "comfyInstanceId": "comfy3",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "Igawa Asagi - Taimanin series.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "micro bikini & micro denim shorts.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "112 유부녀 윤미라 spot 2 학교 강의실",
+  "updatedAt": "2026-05-12T03:02:58.441Z"
+}

@@ -118,7 +118,21 @@ async function resolveScanDir(
     try {
       const entries = await readdir(dir, { withFileTypes: true });
       const origin = entries.find((e) => e.isDirectory() && e.name === "원본");
-      if (origin) dir = join(dir, "원본");
+      if (origin) {
+        const originDir = join(dir, "원본");
+        // Only use "원본" when it actually contains images; otherwise fall back to the job folder.
+        try {
+          const originEntries = await readdir(originDir, { withFileTypes: true });
+          const hasImages = originEntries.some((e) => {
+            if (!e.isFile()) return false;
+            const ext = extname(e.name).toLowerCase();
+            return IMAGE_EXT.has(ext);
+          });
+          if (hasImages) dir = originDir;
+        } catch {
+          // ignore
+        }
+      }
     } catch {
       // ignore
     }

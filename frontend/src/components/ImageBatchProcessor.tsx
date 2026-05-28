@@ -113,8 +113,9 @@ export default function ImageBatchProcessor() {
 
   // Batch size + output (포즈당 3회 완전 랜덤 시드)
   const [batchSize, setBatchSize] = useState(4);
-  const { paths, workspaceReady, resolveError } = useWorkspace();
+  const { character: wsCharacter, spot: wsSpot, paths, workspaceReady, resolveError } = useWorkspace();
   const outputPath = paths?.imageAdult ?? "";
+  const workspacePresetName = wsCharacter.trim() && wsSpot.trim() ? `${wsCharacter.trim()} ${wsSpot.trim()}` : "";
 
   // Job queue state (대기/실행/완료 목록)
   const [queueState, setQueueState] = useState<ImageBatchQueueState | null>(
@@ -131,7 +132,7 @@ export default function ImageBatchProcessor() {
       .getComfyInstances()
       .then((list) => {
         setInstances(list);
-        if (list.length > 0) setSelectedInstance(list[0].id);
+        if (list.length > 0) setSelectedInstance((prev) => prev || list[0].id);
       })
       .catch(console.error);
   }, []);
@@ -261,6 +262,7 @@ export default function ImageBatchProcessor() {
     if (preset.fixedNegative !== undefined) setFixedNegative(preset.fixedNegative);
     if (preset.backgroundNegative !== undefined) setBackgroundNegative(preset.backgroundNegative);
     if (preset.prefixPrompt !== undefined) setVideoPrefixPrompt(preset.prefixPrompt);
+    if (preset.comfyInstanceId !== undefined) setSelectedInstance(preset.comfyInstanceId);
     if (preset.loraSlots?.length) {
       setLoraSlots(preset.loraSlots.map((s) => ({
         enabled: s.enabled,
@@ -281,6 +283,7 @@ export default function ImageBatchProcessor() {
     fixedNegative,
     backgroundNegative,
     prefixPrompt: videoPrefixPrompt,
+    comfyInstanceId: selectedInstance,
     loraSlots: loraSlots.map((s) => ({
       enabled: s.enabled,
       loraName: s.loraName,
@@ -377,7 +380,12 @@ export default function ImageBatchProcessor() {
       </header>
 
       <div className="preset-with-outfit-mode">
-        <PresetPicker onLoad={handlePresetLoad} getCurrentSettings={getCurrentSettingsForPreset} />
+        <PresetPicker
+          onLoad={handlePresetLoad}
+          getCurrentSettings={getCurrentSettingsForPreset}
+          preferredPresetName={workspacePresetName}
+          autoLoadOnPreferredChange
+        />
         <div className="preset-outfit-mode">
           <span className="preset-outfit-label">불러오기 시 의상:</span>
           <label className="preset-outfit-radio">

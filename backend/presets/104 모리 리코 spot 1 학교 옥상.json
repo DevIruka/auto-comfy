@@ -1,0 +1,42 @@
+{
+  "fixedPrefix": "a",
+  "styleTrigger": "moriaruruka, ",
+  "character": "1girl, solo, multicolored hair, hair bow, hair between eyes, gradient hair, ahoge, very long hair, hair intakes, pink eyes, small breast, ",
+  "outfit": "black bow, black footwear, black bowtie, blonde hair, black dress, black capelet, black thighhighs, crossed bangs, frilled capelet, hair ornament, wrist cuffs, frilled dress, ",
+  "backgroundPositive": "high school rooftop, fenced concrete deck, soft warm light, eaceful empty atmosphere, distant city skyline, clean composition, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, \n\nblurry, low quality, watermark, indoor, classroom, ground level, fantasy castle, medieval,\n  ",
+  "prefixPrompt": "A beautiful anime woman with blonde hair, pink eyes, ",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, standing, standing on floor, closed mouth, arms at back, neutral face, emotionless, ",
+  "anchorAspect": "portrait",
+  "comfyInstanceId": "comfy2",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "moria_ruruka.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "104 모리 리코 spot 1 학교 옥상",
+  "updatedAt": "2026-05-04T02:25:03.613Z"
+}

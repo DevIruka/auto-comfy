@@ -59,7 +59,7 @@ export function useBatchProgress() {
               currentImageIndex: message.currentImageIndex,
               totalImages: message.totalImages,
               currentVideoIndex: message.currentVideoIndex,
-              totalVideos: message.totalVideos || 5,
+              totalVideos: message.totalVideos ?? 0,
               overallProgress: message.overallProgress,
               // Reset video progress when starting new video
               currentVideoProgress: 0,

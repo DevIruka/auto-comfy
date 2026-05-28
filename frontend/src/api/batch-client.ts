@@ -9,6 +9,8 @@ export interface BatchJob {
   folderPath: string;
   outputFolderPath: string;
   prefixPrompt: string;
+  /** Fixed seeds per image when job was created (2 or 3). */
+  fixedSeedCount?: 2 | 3;
   status: "pending" | "running" | "paused" | "completed" | "failed" | "stopped";
   currentImageIndex: number;
   totalImages: number;
@@ -18,6 +20,10 @@ export interface BatchJob {
   completedAt?: string;
   error?: string;
   logs: string[];
+}
+
+export interface BatchVideoSettings {
+  fixedSeedCount: 2 | 3;
 }
 
 export interface ImageTask {
@@ -147,6 +153,27 @@ class BatchClient {
       const err = error as { response?: { data?: { error?: string } } };
       throw new Error(err.response?.data?.error || "Failed to get jobs");
     }
+  }
+
+  /** Persisted: fixed seed count per image (2 or 3). Survives refresh and server restart. */
+  async getBatchVideoSettings(): Promise<BatchVideoSettings> {
+    const response = await this.httpClient.get("/batch/settings");
+    if (!response.data?.success || !response.data?.data) {
+      throw new Error("Failed to load batch settings");
+    }
+    return response.data.data as BatchVideoSettings;
+  }
+
+  async updateBatchVideoSettings(
+    fixedSeedCount: 2 | 3,
+  ): Promise<BatchVideoSettings> {
+    const response = await this.httpClient.put("/batch/settings", {
+      fixedSeedCount,
+    });
+    if (!response.data?.success || !response.data?.data) {
+      throw new Error("Failed to save batch settings");
+    }
+    return response.data.data as BatchVideoSettings;
   }
 }
 

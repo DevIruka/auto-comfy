@@ -1,0 +1,42 @@
+{
+  "fixedPrefix": "",
+  "styleTrigger": "bdgaloe, ",
+  "character": "1girl, solo, red eyes,white hair, long hair, twintails, demon girl, demon horns, demon wings, low wings, demon tail, small breast, ",
+  "outfit": "dancer,see-through,red clothes,see-through pelvic curtain,red pelvic curtain,mouth veil,bridal gauntlets,circlet,anklet,white panties,green gem, covered nipples, mouth veil, ",
+  "backgroundPositive": "indoors, medieval_bedroom, canopy_bed, pillow, candlestick, fireplace_glow, moonlight, narrow_window, stone_wall, tapestry, wooden_floor, night, scenery,",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "modern, office, neon, car, blurry, lowres, watermark, text",
+  "prefixPrompt": "A beautiful anime girl with white hair, horns, red eyes, ",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, standing, standing on floor, closed mouth, arms at sides, frightened, ",
+  "anchorAspect": "portrait",
+  "comfyInstanceId": "comfy6",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "grim aloe - Quiz Magic.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "116 메스카기 무희 시온 spot 2 대저택",
+  "updatedAt": "2026-05-19T03:51:43.931Z"
+}

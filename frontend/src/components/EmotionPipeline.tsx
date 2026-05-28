@@ -9,11 +9,13 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3002";
 interface PromptBlocks {
   styleTrigger: string;
   character: string;
+  outfit: string;
   pose: string;
   emotion: string;
   background: string;
   /** Negative 보조: 배경 및 자잘한 걸 고치기 위한 프롬프트 */
   negativeExtra: string;
+  fixedPrefix: string;
 }
 
 interface LoraSlot {
@@ -41,13 +43,18 @@ interface QueueState {
   jobs: JobStatus[];
 }
 
+const DEFAULT_FIXED_PREFIX =
+  "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,";
+
 const defaultBlocks: PromptBlocks = {
   styleTrigger: "masterpiece, best quality, detailed eyes",
   character: "",
+  outfit: "",
   pose: "looking at viewer, facing forward, cowboy shot",
   emotion: "",
   background: "",
   negativeExtra: "",
+  fixedPrefix: DEFAULT_FIXED_PREFIX,
 };
 
 const DEFAULT_LORAS: LoraSlot[] = [
@@ -58,8 +65,9 @@ const DEFAULT_LORAS: LoraSlot[] = [
 ];
 
 export default function EmotionPipeline() {
-  const { paths, workspaceReady, resolveError } = useWorkspace();
+  const { character: wsCharacter, spot: wsSpot, paths, workspaceReady, resolveError } = useWorkspace();
   const folderPath = paths?.emotionImages ?? "";
+  const workspacePresetName = wsCharacter.trim() && wsSpot.trim() ? `${wsCharacter.trim()} ${wsSpot.trim()}` : "";
   const [instances, setInstances] = useState<ComfyInstanceInfo[]>([]);
   const [selectedInstance, setSelectedInstance] = useState("");
   const [promptBlocks, setPromptBlocks] = useState<PromptBlocks>(defaultBlocks);
@@ -78,7 +86,9 @@ export default function EmotionPipeline() {
   useEffect(() => {
     comfyClient.getComfyInstances().then((list) => {
       setInstances(list);
-      if (list.length && !selectedInstance) setSelectedInstance(list[0].id);
+      if (list.length) {
+        setSelectedInstance((prev) => prev || list[0].id);
+      }
     });
   }, []);
 
@@ -148,12 +158,16 @@ export default function EmotionPipeline() {
     const negValue = preset.negativeExtra ?? preset.backgroundNegative;
     setPromptBlocks((prev) => ({
       ...prev,
+      ...(preset.styleTrigger !== undefined && { styleTrigger: preset.styleTrigger }),
       ...(preset.character !== undefined && { character: preset.character }),
+      ...(preset.outfit !== undefined && { outfit: preset.outfit }),
       ...(preset.pose !== undefined && { pose: preset.pose }),
       ...(preset.backgroundPositive !== undefined && { background: preset.backgroundPositive }),
       ...(negValue !== undefined && { negativeExtra: negValue }),
+      ...(preset.fixedPrefix !== undefined && { fixedPrefix: preset.fixedPrefix }),
     }));
     if (preset.prefixPrompt !== undefined) setVideoPrefixPrompt(preset.prefixPrompt);
+    if (preset.comfyInstanceId !== undefined) setSelectedInstance(preset.comfyInstanceId);
     if (preset.loraSlots?.length) {
       setLoraSlots(preset.loraSlots.map((s) => ({
         enabled: s.enabled,
@@ -165,12 +179,16 @@ export default function EmotionPipeline() {
   };
 
   const getCurrentSettingsForPreset = () => ({
+    styleTrigger: promptBlocks.styleTrigger,
     character: promptBlocks.character,
+    outfit: promptBlocks.outfit,
     pose: promptBlocks.pose,
     backgroundPositive: promptBlocks.background,
     negativeExtra: promptBlocks.negativeExtra,
     backgroundNegative: promptBlocks.negativeExtra,
     prefixPrompt: videoPrefixPrompt,
+    comfyInstanceId: selectedInstance,
+    fixedPrefix: promptBlocks.fixedPrefix,
     loraSlots: loraSlots.map((s) => ({
       enabled: s.enabled,
       loraName: s.loraName,
@@ -220,10 +238,12 @@ export default function EmotionPipeline() {
           promptBlocks: {
             styleTrigger: promptBlocks.styleTrigger,
             character: promptBlocks.character,
+            outfit: promptBlocks.outfit,
             pose: promptBlocks.pose,
             emotion: promptBlocks.emotion,
             background: promptBlocks.background,
             negativeExtra: promptBlocks.negativeExtra,
+            fixedPrefix: promptBlocks.fixedPrefix,
           },
           loraSlots: loraPayload,
           upscaleSeedCount: Math.max(3, upscaleSeedCount),
@@ -256,7 +276,12 @@ export default function EmotionPipeline() {
         </p>
       </header>
 
-      <PresetPicker onLoad={handlePresetLoad} getCurrentSettings={getCurrentSettingsForPreset} />
+      <PresetPicker
+        onLoad={handlePresetLoad}
+        getCurrentSettings={getCurrentSettingsForPreset}
+        preferredPresetName={workspacePresetName}
+        autoLoadOnPreferredChange
+      />
       <div className="video-prompt-for-preset">
         <button
           className="video-prompt-toggle"
@@ -375,12 +400,41 @@ export default function EmotionPipeline() {
         </div>
 
         <div className="form-group">
+          <label>고정 접두 프롬프트</label>
+          <input
+            type="text"
+            value={promptBlocks.fixedPrefix}
+            onChange={(e) => setPromptBlocks((p) => ({ ...p, fixedPrefix: e.target.value }))}
+            disabled={loading}
+          />
+        </div>
+        <div className="form-group">
+          <label>스타일 / LoRA 트리거</label>
+          <input
+            type="text"
+            value={promptBlocks.styleTrigger}
+            onChange={(e) => setPromptBlocks((p) => ({ ...p, styleTrigger: e.target.value }))}
+            placeholder="masterpiece, best quality, detailed eyes"
+            disabled={loading}
+          />
+        </div>
+        <div className="form-group">
           <label>캐릭터</label>
           <input
             type="text"
             value={promptBlocks.character}
             onChange={(e) => setPromptBlocks((p) => ({ ...p, character: e.target.value }))}
             placeholder="1girl, solo, ..."
+            disabled={loading}
+          />
+        </div>
+        <div className="form-group">
+          <label>의상</label>
+          <input
+            type="text"
+            value={promptBlocks.outfit}
+            onChange={(e) => setPromptBlocks((p) => ({ ...p, outfit: e.target.value }))}
+            placeholder="clothing, accessories..."
             disabled={loading}
           />
         </div>

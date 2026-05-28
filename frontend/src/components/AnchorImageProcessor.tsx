@@ -39,6 +39,9 @@ const DEFAULT_FIXED_SUFFIX =
 const DEFAULT_FIXED_NEGATIVE =
   "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome";
 
+const DEFAULT_COMPOSITION_POSE =
+  "looking at viewer, facing forward, cowboy shot,";
+
 function CollapsibleBlock({
   label,
   children,
@@ -78,14 +81,15 @@ export default function AnchorImageProcessor() {
   const [videoPrefixPrompt, setVideoPrefixPrompt] = useState("");
   const [showVideoPrompt, setShowVideoPrompt] = useState(false);
 
-  const [compositionPose, setCompositionPose] = useState("");
+  const [compositionPose, setCompositionPose] = useState(DEFAULT_COMPOSITION_POSE);
   const [anchorAspect, setAnchorAspect] = useState<"portrait" | "landscape">(
     "portrait",
   );
 
   const [batchSize, setBatchSize] = useState(4);
-  const { paths, workspaceReady, resolveError } = useWorkspace();
+  const { character: wsCharacter, spot: wsSpot, paths, workspaceReady, resolveError } = useWorkspace();
   const outputPath = paths?.emotionImages ?? "";
+  const workspacePresetName = wsCharacter.trim() && wsSpot.trim() ? `${wsCharacter.trim()} ${wsSpot.trim()}` : "";
 
   const [queueState, setQueueState] = useState<AnchorImageQueueState | null>(
     null,
@@ -133,7 +137,7 @@ export default function AnchorImageProcessor() {
       .getComfyInstances()
       .then((list) => {
         setInstances(list);
-        if (list.length > 0) setSelectedInstance(list[0].id);
+        if (list.length > 0) setSelectedInstance((prev) => prev || list[0].id);
       })
       .catch(console.error);
   }, []);
@@ -210,6 +214,7 @@ export default function AnchorImageProcessor() {
     if (preset.anchorAspect === "portrait" || preset.anchorAspect === "landscape") {
       setAnchorAspect(preset.anchorAspect);
     }
+    if (preset.comfyInstanceId !== undefined) setSelectedInstance(preset.comfyInstanceId);
     if (preset.loraSlots?.length) {
       setLoraSlots(
         preset.loraSlots.map((s) => ({
@@ -234,6 +239,7 @@ export default function AnchorImageProcessor() {
     prefixPrompt: videoPrefixPrompt,
     compositionPose,
     anchorAspect,
+    comfyInstanceId: selectedInstance,
     loraSlots: loraSlots.map((s) => ({
       enabled: s.enabled,
       loraName: s.loraName,
@@ -251,7 +257,7 @@ export default function AnchorImageProcessor() {
     setFixedSuffix(DEFAULT_FIXED_SUFFIX);
     setFixedNegative(DEFAULT_FIXED_NEGATIVE);
     setBackgroundNegative("");
-    setCompositionPose("");
+    setCompositionPose(DEFAULT_COMPOSITION_POSE);
     setAnchorAspect("portrait");
     setLoraSlots(JSON.parse(JSON.stringify(DEFAULT_LORAS)));
   };
@@ -322,7 +328,12 @@ export default function AnchorImageProcessor() {
         </p>
       </header>
 
-      <PresetPicker onLoad={handlePresetLoad} getCurrentSettings={getCurrentSettingsForPreset} />
+      <PresetPicker
+        onLoad={handlePresetLoad}
+        getCurrentSettings={getCurrentSettingsForPreset}
+        preferredPresetName={workspacePresetName}
+        autoLoadOnPreferredChange
+      />
       <div className="video-prompt-for-preset">
         <button
           className="video-prompt-toggle"

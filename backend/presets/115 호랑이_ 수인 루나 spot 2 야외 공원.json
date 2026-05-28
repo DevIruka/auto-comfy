@@ -1,0 +1,42 @@
+{
+  "fixedPrefix": "",
+  "styleTrigger": "best quality, masterpiece, amazing quality, ju fufu, ",
+  "character": "1girl, solo, ju fufu \\(zenless zone zero\\), mosifufu, tiger ears, green eyes, shortstack, neck bell, blonde hair, medium breast, ",
+  "outfit": "choker, black leotard ,highleg leotard, thong leotard, covered nipples,",
+  "backgroundPositive": "outdoor, public park at night, night scene, empty park, no people, no pedestrians, dark blue sky, moonlight, wooden bench, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, blonde, \n\nblurry, low quality, watermark, text, festival, market, street market, night club interior, bar interior, bedroom, living room, beach,",
+  "prefixPrompt": "A beautiful anime woman with blonde hair, green eyes, tiger ears, ",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, squatting, spread legs, slight smile, closed mouth, ",
+  "anchorAspect": "portrait",
+  "comfyInstanceId": "comfy5",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "u fufu (zenless zone zero).safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "Cropped white sailor uniform.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "115 호랑이_ 수인 루나 spot 2 야외 공원",
+  "updatedAt": "2026-05-22T10:34:19.348Z"
+}

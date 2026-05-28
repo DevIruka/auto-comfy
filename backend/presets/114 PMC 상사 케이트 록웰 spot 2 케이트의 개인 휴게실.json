@@ -1,0 +1,42 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  "styleTrigger": "dame_allmind, chad_markson, ",
+  "character": "1girl ,solo, black hair, short hair, updo, green eyes, earrings, green parallel hairclips, rectangular eyewear, ",
+  "outfit": "black lace chemise, nipple visible, ",
+  "backgroundPositive": "bedroom, indoors, bed, pillow, blanket, bedside_table, table_lamp, warm_lighting, wooden_floor, minimalist_furniture, closed_door, soft_shadows, cozy_atmosphere, calm_interior, depth_of_field, scenery, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, \n\npeople, crowd, medieval, cartoon, lowres, blurry, watermark, text",
+  "prefixPrompt": "A beautiful anime girl with green eyes, black hair, ",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, sitting, sitting on bed, slight smile, ",
+  "anchorAspect": "portrait",
+  "comfyInstanceId": "comfy2",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "allmind.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "114 PMC 상사 케이트 록웰 spot 2 케이트의 개인 휴게실",
+  "updatedAt": "2026-05-18T02:50:26.556Z"
+}

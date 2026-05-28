@@ -1,4 +1,4 @@
-import { mkdir, readdir, stat } from "fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "fs/promises";
 import { join, resolve, relative, isAbsolute } from "path";
 
 /** Subfolders under each spot (CRAWL_TO_AUTO_COMFY_FLOW.md) */
@@ -122,6 +122,34 @@ export async function createFolderStructure(
       await mkdir(p, { recursive: true });
       created.push(p);
     }
+  }
+
+  // Also create empty presets for each spot, if missing.
+  // Presets are stored under backend/presets (same convention as presets routes).
+  const presetsDir = join(process.cwd(), "..", "backend", "presets");
+  await mkdir(presetsDir, { recursive: true });
+  const sanitizePresetFilename = (name: string): string =>
+    String(name).replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").trim();
+
+  for (const spotName of list) {
+    const presetName = `${c} ${spotName}`.trim();
+    const fileName = `${sanitizePresetFilename(presetName)}.json`;
+    const filePath = join(presetsDir, fileName);
+    try {
+      await readFile(filePath, "utf-8");
+      // exists — do not overwrite
+      continue;
+    } catch {
+      // missing — create new
+    }
+
+    const now = new Date().toISOString();
+    const preset = {
+      name: presetName,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await writeFile(filePath, JSON.stringify(preset, null, 2), "utf-8");
   }
 
   return { created };

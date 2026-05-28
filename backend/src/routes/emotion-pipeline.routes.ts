@@ -49,10 +49,14 @@ emotionPipelineRouter.post(
       promptBlocks: {
         styleTrigger: body.promptBlocks.styleTrigger ?? "",
         character: body.promptBlocks.character ?? "",
+        outfit: body.promptBlocks.outfit ?? "",
         pose: body.promptBlocks.pose ?? "",
         emotion: body.promptBlocks.emotion ?? "",
         background: body.promptBlocks.background ?? "",
         negativeExtra: body.promptBlocks.negativeExtra ?? "",
+        ...(body.promptBlocks.fixedPrefix !== undefined && {
+          fixedPrefix: body.promptBlocks.fixedPrefix,
+        }),
       },
       loraSlots: body.loraSlots,
       upscaleSeedCount: typeof body.upscaleSeedCount === "number" ? Math.max(3, body.upscaleSeedCount) : 3,
