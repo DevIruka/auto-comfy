@@ -15,6 +15,11 @@ interface PresetPickerProps {
   preferredPresetName?: string;
   /** If true, automatically loads preferred preset when it changes (silently ignores missing). */
   autoLoadOnPreferredChange?: boolean;
+  /**
+   * full: replace the preset JSON with current settings.
+   * promptPatch: keep the existing preset and only write pose prompt add/remove.
+   */
+  saveMode?: "full" | "promptPatch";
 }
 
 export default function PresetPicker({
@@ -22,6 +27,7 @@ export default function PresetPicker({
   getCurrentSettings,
   preferredPresetName,
   autoLoadOnPreferredChange = false,
+  saveMode = "full",
 }: PresetPickerProps) {
   const [presets, setPresets] = useState<PresetSummary[]>([]);
   const [presetsReady, setPresetsReady] = useState(false);
@@ -98,8 +104,36 @@ export default function PresetPicker({
     }
   };
 
+  const savedMessage = (name: string) =>
+    saveMode === "promptPatch"
+      ? `"${name}" 포즈 프롬프트 가감만 저장됨`
+      : `"${name}" 저장 완료`;
+
   const upsertPreset = async (name: string) => {
     const settings = getCurrentSettings();
+    if (saveMode === "promptPatch") {
+      let existing: CharacterPreset | null = null;
+      try {
+        existing = await presetsClient.getPreset(name);
+      } catch {
+        existing = null;
+      }
+      if (existing) {
+        await presetsClient.updatePreset(name, {
+          ...existing,
+          promptPatch: settings.promptPatch,
+          name,
+          createdAt: existing.createdAt,
+        });
+      } else {
+        await presetsClient.savePreset({
+          name,
+          promptPatch: settings.promptPatch,
+        });
+      }
+      return;
+    }
+
     const existing = presets.find((p) => p.name === name);
     if (existing) {
       await presetsClient.updatePreset(name, { ...settings, name });
@@ -115,7 +149,7 @@ export default function PresetPicker({
     setMessage(null);
     try {
       await upsertPreset(name);
-      setMessage(`"${name}" 저장 완료`);
+      setMessage(savedMessage(name));
       setSelected(name);
       setLastLoadedPresetName(name);
       setSaveName("");
@@ -136,7 +170,7 @@ export default function PresetPicker({
     setMessage(null);
     try {
       await upsertPreset(name);
-      setMessage(`"${name}" 저장 완료`);
+      setMessage(savedMessage(name));
       setSelected(name);
       setLastLoadedPresetName(name);
       await refresh();
@@ -153,12 +187,12 @@ export default function PresetPicker({
     setBusy(true);
     setMessage(null);
     try {
-      const settings = getCurrentSettings();
-      await presetsClient.updatePreset(lastLoadedPresetName, {
-        ...settings,
-        name: lastLoadedPresetName,
-      });
-      setMessage(`"${lastLoadedPresetName}" 업데이트됨`);
+      await upsertPreset(lastLoadedPresetName);
+      setMessage(
+        saveMode === "promptPatch"
+          ? `"${lastLoadedPresetName}" 포즈 프롬프트 가감만 저장됨`
+          : `"${lastLoadedPresetName}" 업데이트됨`,
+      );
       await refresh();
       setTimeout(() => setMessage(null), 2000);
     } catch (e) {
@@ -213,7 +247,13 @@ export default function PresetPicker({
           onClick={handleOverwriteLoaded}
           disabled={busy || !lastLoadedPresetName}
           className="preset-btn preset-btn-overwrite"
-          title={lastLoadedPresetName ? `"${lastLoadedPresetName}"에 덮어씁니다` : "먼저 프리셋을 불러오세요"}
+          title={
+            lastLoadedPresetName
+              ? saveMode === "promptPatch"
+                ? `"${lastLoadedPresetName}"에 포즈 프롬프트 가감만 저장합니다`
+                : `"${lastLoadedPresetName}"에 덮어씁니다`
+              : "먼저 프리셋을 불러오세요"
+          }
         >
           불러온 프리셋에 저장
         </button>
@@ -223,7 +263,9 @@ export default function PresetPicker({
           className="preset-btn preset-btn-workspace"
           title={
             (preferredPresetName || "").trim()
-              ? `"${(preferredPresetName || "").trim()}"(으)로 저장합니다`
+              ? saveMode === "promptPatch"
+                ? `"${(preferredPresetName || "").trim()}"에 포즈 프롬프트 가감만 저장합니다`
+                : `"${(preferredPresetName || "").trim()}"(으)로 저장합니다`
               : "상단에서 작업 공간(캐릭터·스팟)을 선택하세요"
           }
         >

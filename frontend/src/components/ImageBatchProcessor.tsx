@@ -307,14 +307,11 @@ export default function ImageBatchProcessor() {
     return ordered;
   }, [poseRows]);
 
-  useEffect(() => {
-    if (
-      defaultExpressionOptions.length > 0 &&
-      !defaultExpressionOptions.includes(defaultExpression)
-    ) {
-      setDefaultExpression(defaultExpressionOptions[0]);
-    }
-  }, [defaultExpressionOptions, defaultExpression]);
+  const defaultExpressionValue = defaultExpressionOptions.includes(
+    defaultExpression,
+  )
+    ? defaultExpression
+    : (defaultExpressionOptions[0] ?? defaultExpression);
 
   const selectedPoses = poseRows.filter((r) => r.selected);
   const RUNS_PER_POSE = 3;
@@ -500,6 +497,7 @@ export default function ImageBatchProcessor() {
           getCurrentSettings={getCurrentSettingsForPreset}
           preferredPresetName={workspacePresetName}
           autoLoadOnPreferredChange
+          saveMode="promptPatch"
         />
         <div className="preset-outfit-mode">
           <span className="preset-outfit-label">불러오기 시 의상:</span>
@@ -843,7 +841,7 @@ export default function ImageBatchProcessor() {
               <div className="ib-default-expr">
                 <label>Default Expression:</label>
                 <select
-                  value={defaultExpression}
+                  value={defaultExpressionValue}
                   onChange={(e) => applyDefaultExpression(e.target.value)}
                   className="ib-select ib-select-sm"
                   disabled={defaultExpressionOptions.length === 0}
