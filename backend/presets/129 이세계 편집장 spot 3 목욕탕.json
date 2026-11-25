@@ -1,0 +1,62 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  "styleTrigger": "",
+  "character": "1girl, red eyes, white hair, very long hair, medium breast, round cheek, embarrassed, shy, rabbit ears, white rabbit ears, ",
+  "outfit": "nude, completely nude, fully nude, naked, completely naked, fully naked, no clothes, bare body, nude body, naked body, bare skin, exposed body, all nude, totally nude, no clothing, undressed, unclothed,",
+  "backgroundPositive": "wooden_on sen, hot_spring, wooden_bath, steam, wooden_floor, wooden_walls, wooden_platform, medieval bathhouse, warm_lighting, lantern,",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "\nsmall breast, blurry, low quality, watermark,  crowds, night, dark, indoor, ",
+  "prefixPrompt": "A beautiful anime woman with white hair, red eyes, rabbit ears, ",
+  "compositionPose": "solo, masturbation, female masturbation, solo female, self pleasure, touching self, spreading pussy, hand between legs, hand on pussy, touching pussy, rubbing pussy, rubbing clit, clit stimulation, squatting, squatting on floor, looking at viewer, eye contact, face visible, front view, \n\ndetailed genitals, pussy visible, spread pussy, wet pussy, glistening pussy, pussy juice, dripping wet, clit visible, labia visible, pussy spread, legs spread wide, wet, messy, fingers visible, hand visible, wrist visible, arm visible, one hand on pussy, other hand on breast, breasts visible, nipples visible, nipple pinching, touching breast, squeezing breast, from front,\",\n    \n     ",
+  "anchorAspect": "portrait",
+  "anchorWidth": 1024,
+  "anchorHeight": 1536,
+  "comfyInstanceId": "comfy1",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "zeroshiki.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "RoundCheek_Illustrious.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "bathingtogether.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "129 이세계 편집장 spot 3 목욕탕",
+  "updatedAt": "2026-10-03T01:41:25.017Z"
+}

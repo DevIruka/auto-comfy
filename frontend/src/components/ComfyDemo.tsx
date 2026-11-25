@@ -4,14 +4,15 @@ import {
   type ComfyInstanceInfo,
   groupInstancesByPod,
 } from "../api/comfy-client";
+import {
+  defaultLoraSlots,
+  extraLoraLabel,
+  EXTRA_LORA_START,
+  type LoraSlotState,
+} from "../utils/lora-slots";
 import "./ComfyDemo.css";
 
-interface LoraSlot {
-  enabled: boolean;
-  loraName: string;
-  strengthModel: number;
-  strengthClip: number;
-}
+type LoraSlot = LoraSlotState;
 
 
 interface GeneratedImage {
@@ -36,13 +37,6 @@ interface NegativeBlocks {
   nsfwNegative: string;
   backgroundNegative: string;
 }
-
-const DEFAULT_LORAS: LoraSlot[] = [
-  { enabled: true, loraName: "", strengthModel: 1, strengthClip: 1 },
-  { enabled: true, loraName: "", strengthModel: 1, strengthClip: 1 },
-  { enabled: false, loraName: "", strengthModel: 1, strengthClip: 1 },
-  { enabled: false, loraName: "", strengthModel: 1, strengthClip: 1 },
-];
 
 const DEFAULT_POSITIVE_BLOCKS: PositiveBlocks = {
   fixedPrefix:
@@ -73,10 +67,12 @@ function CollapsibleBlock({
   label,
   children,
   defaultOpen = false,
+  tag,
 }: {
   label: string;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  tag?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
@@ -84,7 +80,7 @@ function CollapsibleBlock({
       <div className="prompt-block-header" onClick={() => setOpen(!open)}>
         <span className="collapse-arrow">{open ? "▼" : "▶"}</span>
         <span className="prompt-block-label">{label}</span>
-        <span className="prompt-block-tag fixed">고정</span>
+        {tag ? <span className="prompt-block-tag fixed">{tag}</span> : null}
       </div>
       {open && <div className="prompt-block-body">{children}</div>}
     </div>
@@ -95,7 +91,7 @@ export default function ComfyDemo() {
   const [instances, setInstances] = useState<ComfyInstanceInfo[]>([]);
   const [selectedInstance, setSelectedInstance] = useState("");
   const [loraList, setLoraList] = useState<string[]>([]);
-  const [loraSlots, setLoraSlots] = useState<LoraSlot[]>(DEFAULT_LORAS);
+  const [loraSlots, setLoraSlots] = useState<LoraSlot[]>(() => defaultLoraSlots());
 
   const [posBlocks, setPosBlocks] = useState<PositiveBlocks>(
     DEFAULT_POSITIVE_BLOCKS,
@@ -173,6 +169,74 @@ export default function ComfyDemo() {
       prev.map((slot, i) => (i === index ? { ...slot, ...updates } : slot)),
     );
   };
+
+  const renderLoraSlot = (slot: LoraSlot, i: number) => (
+    <div
+      key={i}
+      className={`lora-slot ${!slot.enabled ? "disabled" : ""}`}
+    >
+      <div className="lora-slot-header">
+        <label className="lora-checkbox">
+          <input
+            type="checkbox"
+            checked={slot.enabled}
+            onChange={(e) =>
+              updateLoraSlot(i, { enabled: e.target.checked })
+            }
+          />
+          <span>LoRA {i + 1}</span>
+        </label>
+      </div>
+
+      {slot.enabled && (
+        <div className="lora-slot-body">
+          <select
+            value={slot.loraName}
+            onChange={(e) =>
+              updateLoraSlot(i, { loraName: e.target.value })
+            }
+            className="form-select lora-select"
+          >
+            <option value="">-- Select LoRA --</option>
+            {loraList.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+
+          <div className="lora-strengths">
+            <div className="strength-input">
+              <label>Model</label>
+              <input
+                type="number"
+                step="0.1"
+                value={slot.strengthModel}
+                onChange={(e) =>
+                  updateLoraSlot(i, {
+                    strengthModel: parseFloat(e.target.value) || 0,
+                  })
+                }
+              />
+            </div>
+            <div className="strength-input">
+              <label>CLIP</label>
+              <input
+                type="number"
+                step="0.1"
+                value={slot.strengthClip}
+                onChange={(e) =>
+                  updateLoraSlot(i, {
+                    strengthClip: parseFloat(e.target.value) || 0,
+                  })
+                }
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   const updatePos = (key: keyof PositiveBlocks, value: string) => {
     setPosBlocks((prev) => ({ ...prev, [key]: value }));
@@ -267,73 +331,12 @@ export default function ComfyDemo() {
               </button>
             </div>
 
-            {loraSlots.map((slot, i) => (
-              <div
-                key={i}
-                className={`lora-slot ${!slot.enabled ? "disabled" : ""}`}
-              >
-                <div className="lora-slot-header">
-                  <label className="lora-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={slot.enabled}
-                      onChange={(e) =>
-                        updateLoraSlot(i, { enabled: e.target.checked })
-                      }
-                    />
-                    <span>LoRA {i + 1}</span>
-                  </label>
-                </div>
-
-                {slot.enabled && (
-                  <div className="lora-slot-body">
-                    <select
-                      value={slot.loraName}
-                      onChange={(e) =>
-                        updateLoraSlot(i, { loraName: e.target.value })
-                      }
-                      className="form-select lora-select"
-                    >
-                      <option value="">-- Select LoRA --</option>
-                      {loraList.map((name) => (
-                        <option key={name} value={name}>
-                          {name}
-                        </option>
-                      ))}
-                    </select>
-
-                    <div className="lora-strengths">
-                      <div className="strength-input">
-                        <label>Model</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={slot.strengthModel}
-                          onChange={(e) =>
-                            updateLoraSlot(i, {
-                              strengthModel: parseFloat(e.target.value) || 0,
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="strength-input">
-                        <label>CLIP</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={slot.strengthClip}
-                          onChange={(e) =>
-                            updateLoraSlot(i, {
-                              strengthClip: parseFloat(e.target.value) || 0,
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+            {loraSlots.slice(0, EXTRA_LORA_START).map((slot, i) => renderLoraSlot(slot, i))}
+            <CollapsibleBlock label={extraLoraLabel(loraSlots)}>
+              {loraSlots
+                .slice(EXTRA_LORA_START)
+                .map((slot, j) => renderLoraSlot(slot, j + EXTRA_LORA_START))}
+            </CollapsibleBlock>
           </div>
 
           <div className="section-divider" />
@@ -342,7 +345,7 @@ export default function ComfyDemo() {
           <div className="prompt-blocks-section">
             <h3 className="prompt-section-title">Positive Prompt</h3>
 
-            <CollapsibleBlock label="Fixed Prefix (아티스트)">
+            <CollapsibleBlock label="Fixed Prefix (아티스트)" tag="고정">
               <textarea
                 value={posBlocks.fixedPrefix}
                 onChange={(e) => updatePos("fixedPrefix", e.target.value)}
@@ -422,7 +425,7 @@ export default function ComfyDemo() {
               </div>
             </div>
 
-            <CollapsibleBlock label="Fixed Suffix (품질)">
+            <CollapsibleBlock label="Fixed Suffix (품질)" tag="고정">
               <textarea
                 value={posBlocks.fixedSuffix}
                 onChange={(e) => updatePos("fixedSuffix", e.target.value)}
@@ -447,7 +450,7 @@ export default function ComfyDemo() {
           <div className="prompt-blocks-section">
             <h3 className="prompt-section-title">Negative Prompt</h3>
 
-            <CollapsibleBlock label="Fixed Negative (표준)">
+            <CollapsibleBlock label="Fixed Negative (표준)" tag="고정">
               <textarea
                 value={negBlocks.fixedNegative}
                 onChange={(e) => updateNeg("fixedNegative", e.target.value)}

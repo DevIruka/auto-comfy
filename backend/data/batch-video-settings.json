@@ -1,3 +1,4 @@
 {
-  "fixedSeedCount": 2
+  "fixedSeedCount": 1,
+  "preferMinimax": true
 }

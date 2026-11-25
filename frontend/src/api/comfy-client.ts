@@ -41,6 +41,9 @@ export interface ComfyInstanceInfo {
   name: string;
   podId?: string | null;
   port?: string | null;
+  connectionType?: "proxy" | "ssh-tunnel";
+  sshTarget?: string | null;
+  remotePort?: string | null;
 }
 
 export function groupInstancesByPod(
@@ -288,17 +291,21 @@ class ComfyClient {
   /**
    * Dynamically add a new ComfyUI instance
    */
-  async addInstance(url: string, name?: string): Promise<ComfyInstanceInfo> {
+  async addInstance(
+    url: string,
+    name?: string,
+    remotePorts?: string,
+  ): Promise<ComfyInstanceInfo[]> {
     const response = await fetch(`${this.baseUrl}/api/comfy-instances`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, name }),
+      body: JSON.stringify({ url, name, remotePorts }),
     });
     const result = await response.json();
     if (!result.success) {
       throw new Error(result.error || 'Failed to add instance');
     }
-    return result.instance;
+    return result.instances ?? (result.instance ? [result.instance] : []);
   }
 
   /**
@@ -312,6 +319,25 @@ class ComfyClient {
     if (!result.success) {
       throw new Error(result.error || 'Failed to remove instance');
     }
+  }
+
+  async downloadLora(
+    instanceId: string,
+    url: string,
+  ): Promise<{ filename: string; path: string }> {
+    const response = await fetch(
+      `${this.baseUrl}/api/comfy-instances/${instanceId}/loras/download`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      },
+    );
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.error || "로라 다운로드 실패");
+    }
+    return { filename: result.filename, path: result.path };
   }
 
   /**

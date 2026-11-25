@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { batchClient } from "../api/batch-client";
+import { useState, useEffect, useCallback } from "react";
+import { batchClient, countImageTasks } from "../api/batch-client";
 import type { BatchJob, ImageTask } from "../api/batch-client";
 import {
   comfyClient,
@@ -10,6 +10,7 @@ import { useBatchProgress } from "../hooks/useBatchProgress";
 import PresetPicker from "./PresetPicker";
 import type { CharacterPreset } from "../api/presets-client";
 import { useWorkspace } from "../context/WorkspaceContext";
+import { resolvePresetInstanceId } from "../utils/resolve-preset-instance";
 import "./BatchProcessor.css";
 
 interface FolderPair {
@@ -49,13 +50,8 @@ export default function BatchProcessor() {
     );
   }, [paths]);
   const [prefixPrompt, setPrefixPrompt] = useState("");
-  const [includeRandomSeeds, setIncludeRandomSeeds] = useState(false);
+  const [preferMinimax, setPreferMinimax] = useState(true);
   const [autoStopPod, setAutoStopPod] = useState(false);
-  /** Persisted on server (backend/data/batch-video-settings.json). */
-  const [fixedSeedCount, setFixedSeedCount] = useState<2 | 3>(2);
-  const [batchSettingsError, setBatchSettingsError] = useState<string | null>(
-    null,
-  );
   const [comfyInstances, setComfyInstances] = useState<ComfyInstanceInfo[]>([]);
   const [selectedComfyInstanceId, setSelectedComfyInstanceId] = useState("");
   const [jobs, setJobs] = useState<BatchJob[]>([]);
@@ -64,40 +60,6 @@ export default function BatchProcessor() {
   const [logs, setLogs] = useState<string[]>([]);
 
   const { progress, isConnected } = useBatchProgress();
-
-  const videosPerImage = useMemo(
-    () => fixedSeedCount + (includeRandomSeeds ? 2 : 0),
-    [fixedSeedCount, includeRandomSeeds],
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-    batchClient
-      .getBatchVideoSettings()
-      .then((s) => {
-        if (!cancelled) setFixedSeedCount(s.fixedSeedCount);
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setBatchSettingsError(
-            e instanceof Error ? e.message : String(e),
-          );
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handleFixedSeedCountChange = async (n: 2 | 3) => {
-    setBatchSettingsError(null);
-    setFixedSeedCount(n);
-    try {
-      await batchClient.updateBatchVideoSettings(n);
-    } catch (e) {
-      setBatchSettingsError(e instanceof Error ? e.message : String(e));
-    }
-  };
 
   // 현재 진행 중인 작업 (WS progress.jobId와 일치하는 job)
   const currentJob = progress.jobId
@@ -123,6 +85,13 @@ export default function BatchProcessor() {
     loadComfyInstances();
   }, [loadComfyInstances]);
 
+  useEffect(() => {
+    batchClient
+      .getBatchVideoSettings()
+      .then((settings) => setPreferMinimax(settings.preferMinimax))
+      .catch((err) => console.error("Failed to load batch settings:", err));
+  }, []);
+
   const fetchJobs = useCallback(async () => {
     try {
       const list = await batchClient.getAllJobs();
@@ -144,7 +113,9 @@ export default function BatchProcessor() {
 
   const handlePresetLoad = (preset: CharacterPreset) => {
     if (preset.prefixPrompt !== undefined) setPrefixPrompt(preset.prefixPrompt);
-    if (preset.comfyInstanceId !== undefined) setSelectedComfyInstanceId(preset.comfyInstanceId);
+    setSelectedComfyInstanceId(
+      resolvePresetInstanceId(preset.comfyInstanceId, comfyInstances),
+    );
   };
 
   const getCurrentSettingsForPreset = () => ({ prefixPrompt, comfyInstanceId: selectedComfyInstanceId });
@@ -189,28 +160,56 @@ export default function BatchProcessor() {
     addLog(`폴더 스캔 시작: ${pair.inputPath}`);
 
     try {
-      const images = await batchClient.scanFolder(pair.inputPath);
+      const result = await batchClient.scanFolder(
+        pair.inputPath,
+        pair.outputPath,
+      );
       setFolderPairs((prev) =>
         prev.map((p) =>
           p.id === pairId
-            ? { ...p, scannedImages: images, isScanning: false }
+            ? { ...p, scannedImages: result.images, isScanning: false }
             : p,
         ),
       );
-      addLog(`✅ ${images.length}개의 이미지를 찾았습니다 (${pair.inputPath})`);
-
-      // Group by pose
-      const poseGroups = images.reduce(
-        (acc, img) => {
-          if (!acc[img.poseName]) acc[img.poseName] = 0;
-          acc[img.poseName]++;
-          return acc;
-        },
-        {} as Record<string, number>,
+      const counts = countImageTasks(result.images);
+      addLog(
+        `✅ 이미지 ${result.count}개 · 생성 MiniMax ${counts.minimax} · WAN ${counts.wan} · 스킵 ${counts.skipped} · 프롬프트 없음 ${counts.noPrompt} (${pair.inputPath})`,
       );
 
-      Object.entries(poseGroups).forEach(([pose, count]) => {
-        addLog(`  - ${pose}: ${count}개`);
+      const poseGroups = result.images.reduce(
+        (acc, img) => {
+          if (!acc[img.poseName]) {
+            acc[img.poseName] = {
+              total: 0,
+              pending: 0,
+              noPrompt: 0,
+              minimax: 0,
+              wan: 0,
+            };
+          }
+          acc[img.poseName].total++;
+          if (!img.skipped) acc[img.poseName].pending++;
+          if (img.skipReason === "no_prompt") acc[img.poseName].noPrompt++;
+          if (!img.skipped && img.engine === "minimax") acc[img.poseName].minimax++;
+          if (!img.skipped && img.engine === "wan") acc[img.poseName].wan++;
+          return acc;
+        },
+        {} as Record<
+          string,
+          { total: number; pending: number; noPrompt: number; minimax: number; wan: number }
+        >,
+      );
+
+      Object.entries(poseGroups).forEach(([pose, poseCounts]) => {
+        const engineNote =
+          poseCounts.pending > 0
+            ? ` (MiniMax ${poseCounts.minimax} · WAN ${poseCounts.wan})`
+            : "";
+        const skipNote =
+          poseCounts.noPrompt > 0 ? ` · 프롬프트 없음 ${poseCounts.noPrompt}` : "";
+        addLog(
+          `  - ${pose}: ${poseCounts.pending}개 생성${engineNote} / ${poseCounts.total - poseCounts.pending}개 스킵${skipNote}`,
+        );
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "스캔 실패";
@@ -219,6 +218,25 @@ export default function BatchProcessor() {
       setFolderPairs((prev) =>
         prev.map((p) => (p.id === pairId ? { ...p, isScanning: false } : p)),
       );
+    }
+  };
+
+  const handlePreferMinimaxChange = async (checked: boolean) => {
+    setPreferMinimax(checked);
+    try {
+      const saved = await batchClient.updateBatchVideoSettings({
+        preferMinimax: checked,
+      });
+      setPreferMinimax(saved.preferMinimax);
+      const pairsToRescan = folderPairs.filter(
+        (pair) => pair.inputPath && pair.scannedImages.length > 0,
+      );
+      for (const pair of pairsToRescan) {
+        await handleScan(pair.id);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "설정 저장 실패";
+      setError(msg);
     }
   };
 
@@ -233,11 +251,6 @@ export default function BatchProcessor() {
         return;
       }
     }
-    if (!prefixPrompt) {
-      setError("접두 프롬프트를 입력하세요");
-      return;
-    }
-
     setLoading(true);
     setError(null);
     addLog(`📦 ${folderPairs.length}개 작업을 큐에 추가합니다`);
@@ -252,7 +265,6 @@ export default function BatchProcessor() {
           pair.inputPath,
           pair.outputPath,
           prefixPrompt,
-          includeRandomSeeds,
           shouldStopPod,
           selectedComfyInstanceId || undefined,
         );
@@ -345,14 +357,10 @@ export default function BatchProcessor() {
       return "계산 중...";
     }
 
-    // Average 250 seconds (4 minutes 10 seconds) per video
     const avgSecondsPerVideo = 250;
-    const perImage = videosPerImage;
     const totalVideosJob =
-      progress.totalImages > 0 ? progress.totalImages * perImage : 0;
-    const completedVideos =
-      (progress.currentImageIndex - 1) * perImage +
-      progress.currentVideoIndex;
+      progress.totalVideos > 0 ? progress.totalVideos : progress.totalImages;
+    const completedVideos = Math.max(progress.currentVideoIndex, 0);
     const videosRemaining = Math.max(0, totalVideosJob - completedVideos);
     const secondsRemaining = videosRemaining * avgSecondsPerVideo;
 
@@ -414,67 +422,37 @@ export default function BatchProcessor() {
           </div>
 
           <div className="form-group">
-            <span>이미지당 고정 시드 개수 (서버에 저장됨)</span>
-            <div className="preset-outfit-mode" style={{ marginTop: "8px" }}>
-              <label className="preset-outfit-radio">
-                <input
-                  type="radio"
-                  name="batchFixedSeeds"
-                  checked={fixedSeedCount === 2}
-                  onChange={() => void handleFixedSeedCountChange(2)}
-                  disabled={loading}
-                />
-                2개 (기본)
-              </label>
-              <label className="preset-outfit-radio">
-                <input
-                  type="radio"
-                  name="batchFixedSeeds"
-                  checked={fixedSeedCount === 3}
-                  onChange={() => void handleFixedSeedCountChange(3)}
-                  disabled={loading}
-                />
-                3개
-              </label>
-            </div>
-            <p className="helper-text" style={{ marginTop: "6px" }}>
-              새로고침·서버 재시작 후에도 유지됩니다. 다음에 시작하는 배치 작업부터 적용됩니다.
-            </p>
-            {batchSettingsError && (
-              <p className="form-error" style={{ marginTop: "6px" }}>
-                {batchSettingsError}
-              </p>
-            )}
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="prefix-prompt">접두 프롬프트 (캐릭터 설명)</label>
+            <label htmlFor="prefix-prompt">접두 프롬프트 (WAN 폴백 전용, 선택)</label>
             <textarea
               id="prefix-prompt"
               value={prefixPrompt}
               onChange={(e) => setPrefixPrompt(e.target.value)}
-              rows={3}
-              placeholder="1girl, long hair, blue eyes, school uniform"
+              rows={2}
+              placeholder="WAN(json) 포즈에만 붙습니다. MiniMax에는 넣지 않습니다."
               disabled={loading}
             />
+            <p className="helper-text" style={{ marginTop: "6px" }}>
+              MiniMax 우선이 켜져 있으면 minimax prompt.json에 있는 포즈는 MiniMax H3로,
+              없는 포즈는 pose-config.json(WAN)으로 생성합니다.
+            </p>
           </div>
 
           <div className="form-group">
             <label className="toggle-label">
               <input
                 type="checkbox"
-                checked={includeRandomSeeds}
-                onChange={(e) => setIncludeRandomSeeds(e.target.checked)}
+                checked={preferMinimax}
+                onChange={(e) => void handlePreferMinimaxChange(e.target.checked)}
                 disabled={loading}
                 className="toggle-checkbox"
               />
               <span className="toggle-text">
-                🎲 랜덤 시드 2개 추가 생성 ({includeRandomSeeds ? "ON" : "OFF"})
+                MiniMax 우선 생성 ({preferMinimax ? "ON" : "OFF"})
               </span>
               <div className="toggle-description">
-                {includeRandomSeeds
-                  ? `✅ 고정 시드 ${fixedSeedCount}개 + 랜덤 시드 2개 = 총 ${fixedSeedCount + 2}개 영상 생성`
-                  : `기본: 고정 시드 ${fixedSeedCount}개만 생성`}
+                {preferMinimax
+                  ? "minimax prompt.json 포즈는 MiniMax H3, 나머지는 WAN(json)"
+                  : "MiniMax 포즈만 생성하고 나머지는 스킵"}
               </div>
             </label>
           </div>
@@ -534,7 +512,7 @@ export default function BatchProcessor() {
                 </div>
 
                 <div className="form-group">
-                  <label>Output (성인용 영상)</label>
+                  <label>Output (성인용 영상 · 기존 .mp4만 스킵)</label>
                   <div className="ib-readonly-path" title={pair.outputPath}>
                     {pair.outputPath || "작업 공간 선택 필요"}
                   </div>
@@ -556,16 +534,17 @@ export default function BatchProcessor() {
                   <div className="scan-results-mini">
                     <p>✅ {pair.scannedImages.length}개 이미지</p>
                     <p>
-                      📹{" "}
-                      {pair.scannedImages.length * videosPerImage}
-                      개 영상 예상
+                      {(() => {
+                        const counts = countImageTasks(pair.scannedImages);
+                        return `📹 생성 MiniMax ${counts.minimax} · WAN ${counts.wan} · 스킵 ${counts.skipped} · 프롬프트 없음 ${counts.noPrompt}`;
+                      })()}
                     </p>
                     <p>
                       ⏱️{" "}
                       {(() => {
-                        const totalVideos =
-                          pair.scannedImages.length *
-                          videosPerImage;
+                        const totalVideos = pair.scannedImages.filter(
+                          (img) => !img.skipped,
+                        ).length;
                         const totalSeconds = totalVideos * 250;
                         const hours = Math.floor(totalSeconds / 3600);
                         const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -583,26 +562,21 @@ export default function BatchProcessor() {
           <div className="total-summary">
             <h3>전체 요약</h3>
             <p>
-              총 폴더 쌍: {folderPairs.length}개 | 총 이미지:{" "}
-              {folderPairs.reduce(
-                (sum, pair) => sum + pair.scannedImages.length,
-                0,
-              )}
-              개 | 총 영상:{" "}
-              {folderPairs.reduce(
-                (sum, pair) => sum + pair.scannedImages.length,
-                0,
-              ) * videosPerImage}
-              개
+              {(() => {
+                const all = folderPairs.flatMap((pair) => pair.scannedImages);
+                const counts = countImageTasks(all);
+                return `총 폴더 쌍: ${folderPairs.length}개 | 총 이미지: ${all.length}개 | 생성 MiniMax ${counts.minimax} · WAN ${counts.wan} | 스킵 ${counts.skipped}개 | 프롬프트 없음 ${counts.noPrompt}개`;
+              })()}
             </p>
             <p>
               예상 총 소요 시간:{" "}
               {(() => {
-                const totalVideos =
-                  folderPairs.reduce(
-                    (sum, pair) => sum + pair.scannedImages.length,
-                    0,
-                  ) * videosPerImage;
+                const totalVideos = folderPairs.reduce(
+                  (sum, pair) =>
+                    sum +
+                    pair.scannedImages.filter((img) => !img.skipped).length,
+                  0,
+                );
                 const totalSeconds = totalVideos * 250;
                 const hours = Math.floor(totalSeconds / 3600);
                 const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -619,7 +593,6 @@ export default function BatchProcessor() {
               disabled={
                 loading ||
                 !workspaceReady ||
-                !prefixPrompt ||
                 folderPairs.some((p) => !p.inputPath || !p.outputPath)
               }
               className="btn-primary btn-large"
@@ -726,10 +699,7 @@ export default function BatchProcessor() {
               <div className="info-row">
                 <span>현재 영상:</span>
                 <span>
-                  {progress.currentVideoIndex}/
-                  {progress.totalVideos > 0
-                    ? progress.totalVideos
-                    : videosPerImage}
+                  {progress.currentVideoIndex}/{progress.totalVideos}
                 </span>
               </div>
               {progress.currentVideoProgressMax > 0 && (

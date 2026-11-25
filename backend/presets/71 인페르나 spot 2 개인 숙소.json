@@ -13,7 +13,7 @@
   "loraSlots": [
     {
       "enabled": true,
-      "loraName": "Laevatain.safetensors",
+      "loraName": "Robertlu1021_laevatain_(arknights)_v2.0_epoch_11.safetensors",
       "strengthModel": 0.7,
       "strengthClip": 1
     },

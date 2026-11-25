@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   comfyClient,
   type ComfyInstanceInfo,
@@ -14,23 +14,21 @@ import {
 import PresetPicker from "./PresetPicker";
 import type { CharacterPreset } from "../api/presets-client";
 import { useWorkspace } from "../context/WorkspaceContext";
+import {
+  defaultLoraSlots,
+  padLoraSlots,
+  extraLoraLabel,
+  EXTRA_LORA_START,
+  type LoraSlotState,
+} from "../utils/lora-slots";
+import { resolvePresetInstanceId } from "../utils/resolve-preset-instance";
+import { useInstanceLoras } from "../context/LoraListContext";
+import { LoraNameSelect, LoraSearchInput } from "./LoraNameSelect";
 import "./BannerProcessor.css";
 
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3002/ws";
 
-interface LoraSlot {
-  enabled: boolean;
-  loraName: string;
-  strengthModel: number;
-  strengthClip: number;
-}
-
-const DEFAULT_LORAS: LoraSlot[] = [
-  { enabled: true, loraName: "", strengthModel: 1, strengthClip: 1 },
-  { enabled: true, loraName: "", strengthModel: 1, strengthClip: 1 },
-  { enabled: false, loraName: "", strengthModel: 1, strengthClip: 1 },
-  { enabled: false, loraName: "", strengthModel: 1, strengthClip: 1 },
-];
+type LoraSlot = LoraSlotState;
 
 const DEFAULT_FIXED_PREFIX =
   "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,";
@@ -41,6 +39,8 @@ const DEFAULT_FIXED_NEGATIVE =
 
 const DEFAULT_COMPOSITION_POSE =
   "looking at viewer, facing forward, cowboy shot,";
+const DEFAULT_NUDE_SUFFIX =
+  "nude, completely nude, fully nude, naked, completely naked, fully naked, no clothes, bare body, nude body, naked body, bare skin, exposed body, all nude, totally nude, no clothing, undressed, unclothed,";
 
 function CollapsibleBlock({
   label,
@@ -66,9 +66,10 @@ function CollapsibleBlock({
 export default function AnchorImageProcessor() {
   const [instances, setInstances] = useState<ComfyInstanceInfo[]>([]);
   const [selectedInstance, setSelectedInstance] = useState("");
-  const [loraList, setLoraList] = useState<string[]>([]);
-  const [loraSlots, setLoraSlots] = useState<LoraSlot[]>(DEFAULT_LORAS);
-  const [loadingLoras, setLoadingLoras] = useState(false);
+  const [loraSlots, setLoraSlots] = useState<LoraSlot[]>(() => defaultLoraSlots());
+  const [loraFilter, setLoraFilter] = useState("");
+  const { loraList, loadingLoras, listReady, listError, refreshLoras } =
+    useInstanceLoras(selectedInstance);
 
   const [fixedPrefix, setFixedPrefix] = useState(DEFAULT_FIXED_PREFIX);
   const [styleTrigger, setStyleTrigger] = useState("");
@@ -80,11 +81,16 @@ export default function AnchorImageProcessor() {
   const [backgroundNegative, setBackgroundNegative] = useState("");
   const [videoPrefixPrompt, setVideoPrefixPrompt] = useState("");
   const [showVideoPrompt, setShowVideoPrompt] = useState(false);
+  const [presetOutfitMode, setPresetOutfitMode] = useState<"preset" | "nude">(
+    "preset",
+  );
 
   const [compositionPose, setCompositionPose] = useState(DEFAULT_COMPOSITION_POSE);
-  const [anchorAspect, setAnchorAspect] = useState<"portrait" | "landscape">(
-    "portrait",
-  );
+  const [anchorAspect, setAnchorAspect] = useState<
+    "portrait" | "landscape" | "shortform" | "custom"
+  >("shortform");
+  const [customWidth, setCustomWidth] = useState(720);
+  const [customHeight, setCustomHeight] = useState(1280);
 
   const [batchSize, setBatchSize] = useState(4);
   const { character: wsCharacter, spot: wsSpot, paths, workspaceReady, resolveError } = useWorkspace();
@@ -142,23 +148,6 @@ export default function AnchorImageProcessor() {
       .catch(console.error);
   }, []);
 
-  const fetchLoras = useCallback(async () => {
-    if (!selectedInstance) return;
-    setLoadingLoras(true);
-    try {
-      const loras = await comfyClient.getLoraList(selectedInstance);
-      setLoraList(loras);
-    } catch (err) {
-      console.error("Failed to fetch LoRAs:", err);
-    } finally {
-      setLoadingLoras(false);
-    }
-  }, [selectedInstance]);
-
-  useEffect(() => {
-    if (selectedInstance) fetchLoras();
-  }, [selectedInstance, fetchLoras]);
-
   useEffect(() => {
     const ws = new WebSocket(WS_URL);
     ws.onmessage = (event) => {
@@ -197,11 +186,75 @@ export default function AnchorImageProcessor() {
     );
   };
 
+  const renderLoraSlot = (slot: LoraSlot, i: number) => (
+    <div
+      key={i}
+      className={`ib-lora-slot ${!slot.enabled ? "disabled" : ""}`}
+    >
+      <label className="ib-check">
+        <input
+          type="checkbox"
+          checked={slot.enabled}
+          onChange={(e) =>
+            updateLoraSlot(i, { enabled: e.target.checked })
+          }
+        />
+        <span>LoRA {i + 1}</span>
+      </label>
+      {slot.enabled && (
+        <div className="ib-lora-body">
+          <LoraNameSelect
+            names={loraList}
+            value={slot.loraName}
+            onChange={(name) => updateLoraSlot(i, { loraName: name })}
+            filter={loraFilter}
+            className="ib-select ib-select-sm"
+            loading={loadingLoras}
+            listReady={listReady}
+            listError={listError}
+          />
+          <div className="ib-strengths">
+            <div>
+              <label>Model</label>
+              <input
+                type="number"
+                step="0.1"
+                value={slot.strengthModel}
+                onChange={(e) =>
+                  updateLoraSlot(i, {
+                    strengthModel: parseFloat(e.target.value) || 0,
+                  })
+                }
+              />
+            </div>
+            <div>
+              <label>CLIP</label>
+              <input
+                type="number"
+                step="0.1"
+                value={slot.strengthClip}
+                onChange={(e) =>
+                  updateLoraSlot(i, {
+                    strengthClip: parseFloat(e.target.value) || 0,
+                  })
+                }
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   const handlePresetLoad = (preset: CharacterPreset) => {
     if (preset.fixedPrefix !== undefined) setFixedPrefix(preset.fixedPrefix);
     if (preset.styleTrigger !== undefined) setStyleTrigger(preset.styleTrigger);
     if (preset.character !== undefined) setCharacter(preset.character);
-    if (preset.outfit !== undefined) setOutfit(preset.outfit);
+    if (presetOutfitMode === "nude") {
+      setOutfit(DEFAULT_NUDE_SUFFIX);
+    } else if (preset.outfit !== undefined) {
+      setOutfit(preset.outfit);
+    }
     if (preset.backgroundPositive !== undefined)
       setBackgroundPositive(preset.backgroundPositive);
     if (preset.fixedSuffix !== undefined) setFixedSuffix(preset.fixedSuffix);
@@ -211,19 +264,19 @@ export default function AnchorImageProcessor() {
     if (preset.prefixPrompt !== undefined) setVideoPrefixPrompt(preset.prefixPrompt);
     if (preset.compositionPose !== undefined)
       setCompositionPose(preset.compositionPose);
-    if (preset.anchorAspect === "portrait" || preset.anchorAspect === "landscape") {
+    if (
+      preset.anchorAspect === "portrait" ||
+      preset.anchorAspect === "landscape" ||
+      preset.anchorAspect === "shortform" ||
+      preset.anchorAspect === "custom"
+    ) {
       setAnchorAspect(preset.anchorAspect);
     }
-    if (preset.comfyInstanceId !== undefined) setSelectedInstance(preset.comfyInstanceId);
+    if (typeof preset.anchorWidth === "number") setCustomWidth(preset.anchorWidth);
+    if (typeof preset.anchorHeight === "number") setCustomHeight(preset.anchorHeight);
+    setSelectedInstance(resolvePresetInstanceId(preset.comfyInstanceId, instances));
     if (preset.loraSlots?.length) {
-      setLoraSlots(
-        preset.loraSlots.map((s) => ({
-          enabled: s.enabled,
-          loraName: s.loraName,
-          strengthModel: s.strengthModel,
-          strengthClip: s.strengthClip,
-        })),
-      );
+      setLoraSlots(padLoraSlots(preset.loraSlots));
     }
   };
 
@@ -239,6 +292,8 @@ export default function AnchorImageProcessor() {
     prefixPrompt: videoPrefixPrompt,
     compositionPose,
     anchorAspect,
+    anchorWidth: customWidth,
+    anchorHeight: customHeight,
     comfyInstanceId: selectedInstance,
     loraSlots: loraSlots.map((s) => ({
       enabled: s.enabled,
@@ -258,8 +313,10 @@ export default function AnchorImageProcessor() {
     setFixedNegative(DEFAULT_FIXED_NEGATIVE);
     setBackgroundNegative("");
     setCompositionPose(DEFAULT_COMPOSITION_POSE);
-    setAnchorAspect("portrait");
-    setLoraSlots(JSON.parse(JSON.stringify(DEFAULT_LORAS)));
+    setAnchorAspect("shortform");
+    setCustomWidth(720);
+    setCustomHeight(1280);
+    setLoraSlots(defaultLoraSlots());
   };
 
   const handleStart = async () => {
@@ -291,6 +348,9 @@ export default function AnchorImageProcessor() {
         outputPath,
         compositionPose: compositionPose.trim() || "",
         aspect: anchorAspect,
+        ...(anchorAspect === "custom"
+          ? { width: customWidth, height: customHeight }
+          : {}),
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -328,12 +388,35 @@ export default function AnchorImageProcessor() {
         </p>
       </header>
 
-      <PresetPicker
-        onLoad={handlePresetLoad}
-        getCurrentSettings={getCurrentSettingsForPreset}
-        preferredPresetName={workspacePresetName}
-        autoLoadOnPreferredChange
-      />
+      <div className="preset-with-outfit-mode">
+        <PresetPicker
+          onLoad={handlePresetLoad}
+          getCurrentSettings={getCurrentSettingsForPreset}
+          preferredPresetName={workspacePresetName}
+          autoLoadOnPreferredChange
+        />
+        <div className="preset-outfit-mode">
+          <span className="preset-outfit-label">불러오기 시 의상:</span>
+          <label className="preset-outfit-radio">
+            <input
+              type="radio"
+              name="anchorOutfitMode"
+              checked={presetOutfitMode === "nude"}
+              onChange={() => setPresetOutfitMode("nude")}
+            />
+            Nude
+          </label>
+          <label className="preset-outfit-radio">
+            <input
+              type="radio"
+              name="anchorOutfitMode"
+              checked={presetOutfitMode === "preset"}
+              onChange={() => setPresetOutfitMode("preset")}
+            />
+            프리셋 의상 그대로
+          </label>
+        </div>
+      </div>
       <div className="video-prompt-for-preset">
         <button
           className="video-prompt-toggle"
@@ -377,77 +460,21 @@ export default function AnchorImageProcessor() {
           <div className="ib-section ib-lora-section">
             <div className="ib-section-row">
               <h3>LoRA Configuration</h3>
+              <LoraSearchInput value={loraFilter} onChange={setLoraFilter} />
               <button
                 className="ib-btn-sm"
-                onClick={fetchLoras}
+                onClick={refreshLoras}
                 disabled={loadingLoras}
               >
                 {loadingLoras ? "..." : "Refresh"}
               </button>
             </div>
-            {loraSlots.map((slot, i) => (
-              <div
-                key={i}
-                className={`ib-lora-slot ${!slot.enabled ? "disabled" : ""}`}
-              >
-                <label className="ib-check">
-                  <input
-                    type="checkbox"
-                    checked={slot.enabled}
-                    onChange={(e) =>
-                      updateLoraSlot(i, { enabled: e.target.checked })
-                    }
-                  />
-                  <span>LoRA {i + 1}</span>
-                </label>
-                {slot.enabled && (
-                  <div className="ib-lora-body">
-                    <select
-                      value={slot.loraName}
-                      onChange={(e) =>
-                        updateLoraSlot(i, { loraName: e.target.value })
-                      }
-                      className="ib-select ib-select-sm"
-                    >
-                      <option value="">-- Select --</option>
-                      {loraList.map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="ib-strengths">
-                      <div>
-                        <label>Model</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={slot.strengthModel}
-                          onChange={(e) =>
-                            updateLoraSlot(i, {
-                              strengthModel: parseFloat(e.target.value) || 0,
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label>CLIP</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={slot.strengthClip}
-                          onChange={(e) =>
-                            updateLoraSlot(i, {
-                              strengthClip: parseFloat(e.target.value) || 0,
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+            {loraSlots.slice(0, EXTRA_LORA_START).map((slot, i) => renderLoraSlot(slot, i))}
+            <CollapsibleBlock label={extraLoraLabel(loraSlots)}>
+              {loraSlots
+                .slice(EXTRA_LORA_START)
+                .map((slot, j) => renderLoraSlot(slot, j + EXTRA_LORA_START))}
+            </CollapsibleBlock>
           </div>
 
           <div className="ib-divider" />
@@ -520,18 +547,54 @@ export default function AnchorImageProcessor() {
           <div className="ib-section">
             <label className="ib-label">캔버스 비율</label>
             <div className="ib-hint" style={{ marginBottom: "0.5rem" }}>
-              세로(배너 기본) 1024×1536 · 가로(lying down 규칙) 1536×1024
+              {anchorAspect === "custom"
+                ? "직접 입력: 가로·세로를 지정 (8의 배수로 자동 보정, 256~2048)"
+                : "숏폼 720×1280 · 세로 1024×1536 · 가로 1536×1024"}
             </div>
             <select
               className="ib-select"
               value={anchorAspect}
               onChange={(e) =>
-                setAnchorAspect(e.target.value as "portrait" | "landscape")
+                setAnchorAspect(
+                  e.target.value as
+                    | "portrait"
+                    | "landscape"
+                    | "shortform"
+                    | "custom",
+                )
               }
             >
+              <option value="shortform">숏폼 (720×1280)</option>
               <option value="portrait">세로 (1024×1536)</option>
               <option value="landscape">가로 (1536×1024)</option>
+              <option value="custom">직접 입력</option>
             </select>
+            {anchorAspect === "custom" && (
+              <div className="ib-strengths" style={{ marginTop: "0.5rem" }}>
+                <div>
+                  <label>가로 (width)</label>
+                  <input
+                    type="number"
+                    min={256}
+                    max={2048}
+                    step={8}
+                    value={customWidth}
+                    onChange={(e) => setCustomWidth(Number(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <label>세로 (height)</label>
+                  <input
+                    type="number"
+                    min={256}
+                    max={2048}
+                    step={8}
+                    value={customHeight}
+                    onChange={(e) => setCustomHeight(Number(e.target.value))}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="ib-prompt-block">

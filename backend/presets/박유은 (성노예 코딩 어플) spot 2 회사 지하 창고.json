@@ -1,0 +1,44 @@
+{
+  "fixedPrefix": "",
+  "styleTrigger": "mature woman, adult, flat_color, ",
+  "character": "1girl, solo, black hair, gray eyes, black long hair, straight hair, large breast, glasses, ",
+  "outfit": "office lady, light blue collared shirt, long sleeves, fine fabric, red skirt, short skirt, black thighhighs, white panties, panties visible, ",
+  "backgroundPositive": "dark underground storage room, cluttered basement, concrete walls, dim lighting, messy shelves filled with computer parts, server racks, PC cases, cables, motherboards, graphics cards, monitors, industrial lighting, cold atmosphere, IT company storage, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, short hair, logo, eyelashes, ",
+  "prefixPrompt": "",
+  "compositionPose": "looking at viewer, body facing forward, cowboy shot, standing, standing on floor, closed mouth, contemptuous expression, scornful look, disdainful expression, looking down on viewer, ",
+  "anchorAspect": "portrait",
+  "anchorWidth": 1024,
+  "anchorHeight": 1536,
+  "comfyInstanceId": "comfy3",
+  "loraSlots": [
+    {
+      "enabled": false,
+      "loraName": "Ai love Higokko Style.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "mature slider.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "flat style1.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "dongtan.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "박유은 (성노예 코딩 어플) spot 2 회사 지하 창고",
+  "updatedAt": "2026-08-26T02:03:05.711Z"
+}

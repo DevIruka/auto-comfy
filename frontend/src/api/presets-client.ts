@@ -25,8 +25,22 @@ export interface CharacterPreset {
   negativeExtra?: string;
   /** 앵커 이미지 탭: Composition / Pose 자유 입력 */
   compositionPose?: string;
-  /** 앵커 이미지: portrait = 1024×1536, landscape = 1536×1024 (배너 lying down 규칙과 동일) */
-  anchorAspect?: "portrait" | "landscape";
+  /** 앵커 이미지: shortform = 720×1280, portrait = 1024×1536, landscape = 1536×1024, custom = 직접 입력 */
+  anchorAspect?: "portrait" | "landscape" | "shortform" | "custom";
+  /** 앵커 이미지 custom 모드에서 사용할 직접 입력 해상도 */
+  anchorWidth?: number;
+  anchorHeight?: number;
+  /** 성인용 이미지 자동화: shortform = 720×1280 (default), portrait = 1024×1536, custom = 직접 입력 */
+  imageAspect?: "portrait" | "shortform" | "custom";
+  imageWidth?: number;
+  imageHeight?: number;
+  /** 성인용 이미지 자동화: 포즈 프롬프트 가감 (요청 시만 적용) */
+  promptPatch?: {
+    enabled: boolean;
+    addText?: string;
+    removeText?: string;
+    addPosition?: "prepend" | "append";
+  };
   /** Last selected ComfyUI instance for image/video tasks (e.g. comfy1, comfy5). */
   comfyInstanceId?: string;
 }

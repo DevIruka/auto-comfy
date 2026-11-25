@@ -1,20 +1,40 @@
 {
   "fixedPrefix": "",
-  "styleTrigger": "kirin xr armor, ",
-  "character": "1girl, solo, blue eyes, ponytail, bare shoulders, navel, large breasts, blush, ",
-  "outfit": "cleavage, midriff, earrings, single horn hairband, pendant, black collar, white strapless halter, lace-trimmed gloves, white loincloth, black thighhighs, skindentation, ",
-  "backgroundPositive": "fireplace, sitting, fantasy, beer mug,  bar, indoors, \nmasterpiece,best quality,amazing quality,very aesthetic,absurdres,newest,scenery,extreme detail,soft lighting,volumetric lighting,intricate details,finely detailed,",
+  "styleTrigger": "hnyrm, mature woman, ",
+  "character": "1girl, solo, long hair, brown hair, mature female, (mole under mouth:0.8), brown eyes, wavy hair, hair behind ear, ",
+  "outfit": "white shirt, collared shirt, collarbone, long sleeves, high-waist skirt, black skirt, pencil skirt,",
+  "backgroundPositive": "office, private office, desk, executive desk, office chair, swivel chair, leather chair, computer monitor, laptop on desk, desk lamp, coffee mug, indoors, no exterior, ceiling light,",
   "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
   "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
-  "backgroundNegative": "",
+  "backgroundNegative": "red pupils, short hair, logo, eyelashes, ",
   "prefixPrompt": "",
-  "compositionPose": "looking at viewer, facing forward, cowboy shot, closed mouth, ",
+  "compositionPose": "looking at viewer, body facing forward, cowboy shot, sitting, sitting on chair, ",
   "anchorAspect": "portrait",
-  "comfyInstanceId": "comfy2",
+  "anchorWidth": 1024,
+  "anchorHeight": 1536,
+  "comfyInstanceId": "comfy1",
   "loraSlots": [
     {
       "enabled": true,
-      "loraName": "kirin.safetensors",
+      "loraName": "Han Yuri Anima.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "mature slider.safetensors",
+      "strengthModel": -3,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "flat style1.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "dongtan.safetensors",
       "strengthModel": 1,
       "strengthClip": 1
     },
@@ -38,5 +58,5 @@
     }
   ],
   "name": "앵커 테스트 spot 1",
-  "updatedAt": "2026-05-28T01:51:58.473Z"
+  "updatedAt": "2026-09-29T01:28:48.441Z"
 }

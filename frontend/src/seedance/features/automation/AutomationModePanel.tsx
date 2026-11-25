@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import PresetPicker from "../../../components/PresetPicker";
 import type { CharacterPreset } from "../../../api/presets-client";
@@ -10,6 +10,7 @@ import {
   AutomationScanResultPanel,
 } from "./AutomationResultPanels";
 import {
+  fetchIdlePrompts,
   postSystemOpenFolder,
   postSystemPickFolder,
 } from "../../services/seedanceApi";
@@ -19,6 +20,7 @@ import type {
   AutomationRunResult,
   AutomationScanResult,
   FolderPair,
+  IdlePromptOption,
 } from "../../types/app";
 
 interface AutomationModePanelProps {
@@ -80,6 +82,24 @@ export function AutomationModePanel({
   const workspacePresetName = wsCharacter.trim() && wsSpot.trim() ? `${wsCharacter.trim()} ${wsSpot.trim()}` : "";
   const [rootPathLoading, setRootPathLoading] = useState(false);
   const [rootPathMessage, setRootPathMessage] = useState("");
+  const [idlePromptOptions, setIdlePromptOptions] = useState<IdlePromptOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { ok, data } = await fetchIdlePrompts();
+        if (!cancelled && ok && Array.isArray(data.prompts)) {
+          setIdlePromptOptions(data.prompts);
+        }
+      } catch {
+        // Idle prompt options are optional; the panel just hides when empty.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleAutomationPresetLoad = useCallback(
     (preset: CharacterPreset) => {
@@ -158,6 +178,7 @@ export function AutomationModePanel({
         rowEndpointByIndex={rowEndpointByIndex}
         rowPausedByIndex={rowPausedByIndex}
         rowControlLoadingByIndex={rowControlLoadingByIndex}
+        idlePromptOptions={idlePromptOptions}
       />
 
       <div className="input-group">

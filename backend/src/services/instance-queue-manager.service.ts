@@ -6,7 +6,8 @@ export type ServiceType =
   | "anchor-image"
   | "batch"
   | "emotion-batch"
-  | "emotion-pipeline";
+  | "emotion-pipeline"
+  | "runpod-stop";
 
 export interface QueueEntry {
   entryId: string;

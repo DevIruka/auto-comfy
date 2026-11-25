@@ -1,0 +1,44 @@
+{
+  "fixedPrefix": "",
+  "styleTrigger": "",
+  "character": "1girl, mtrfem, solo, black long hair, black eyes, dark eyes, medium breast, frightened face, ",
+  "outfit": "bodycon, short dress, black bodycon, black dress, ",
+  "backgroundPositive": "dimly lit private room, underground club vibe, dark concrete walls, red and purple neon lighting, leather couch, mirror wall, chains, low ceiling, enclosed space, moody atmosphere, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, crowds, ",
+  "prefixPrompt": "",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, sitting, sitting on sofa, ",
+  "anchorAspect": "portrait",
+  "anchorWidth": 1024,
+  "anchorHeight": 1536,
+  "comfyInstanceId": "comfy3",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "mature female.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "bodycon2.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "직장 부하 서민경 spot 2 섹스 클럽",
+  "updatedAt": "2026-08-19T07:02:46.294Z"
+}

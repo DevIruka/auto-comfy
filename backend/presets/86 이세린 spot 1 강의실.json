@@ -1,7 +1,7 @@
 {
   "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
   "styleTrigger": "",
-  "character": "1girl, solo, long hair, black hair, red eyes, huge breast, ",
+  "character": "1girl, solo, long hair, black hair, red eyes, huge breast, half-lidded eyes, half-closed eyes, dominant face, dominant expression, dominant look, closed mouth, ",
   "outfit": "black school uniform, school uniform, black stocking,",
   "backgroundPositive": "classroom, school, indoors, desk, chair, blackboard, chalkboard, whiteboard, window, school desk, wooden desk, school chairs, classroom background, school background, books, textbooks, school supplies, natural lighting, window light, daylight, after school, empty classroom, detailed background,",
   "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
@@ -10,7 +10,9 @@
   "prefixPrompt": "A beautiful anime girl with black long hair, red eyes, ",
   "compositionPose": "looking at viewer, facing forward, cowboy shot, standing, standing on floor, \n\ndominant face, dominant expression, dominant look, closed mouth, ",
   "anchorAspect": "portrait",
-  "comfyInstanceId": "comfy2",
+  "anchorWidth": 1024,
+  "anchorHeight": 1536,
+  "comfyInstanceId": "comfy1",
   "loraSlots": [
     {
       "enabled": true,
@@ -35,8 +37,26 @@
       "loraName": "",
       "strengthModel": 1,
       "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
     }
   ],
   "name": "86 이세린 spot 1 강의실",
-  "updatedAt": "2026-04-15T00:31:50.792Z"
+  "updatedAt": "2026-11-09T04:16:22.196Z"
 }

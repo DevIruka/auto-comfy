@@ -103,6 +103,131 @@ export function createWanWorkflow(
   return workflow;
 }
 
+type TimelineImageItem = {
+  id: string;
+  enabled: boolean;
+  order: number;
+  slot: number;
+  start: number;
+  duration: number;
+  type: "image";
+  value: string;
+  thumbnail: null;
+  source_width: number;
+  source_height: number;
+};
+
+function parseJsonObject(raw: unknown): Record<string, unknown> {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+/**
+ * MiniMax H3 Director Plus workflow: patch image + prompt only.
+ * Duration / frame rate stay at the template values (5s / 24fps).
+ */
+export function createMinimaxH3Workflow(
+  imageName: string,
+  prompt: string,
+): ComfyWorkflow {
+  const workflowPath = join(process.cwd(), "src", "workflows", "minimax-h3.json");
+  const base = JSON.parse(readFileSync(workflowPath, "utf-8"));
+  const workflow = { ...base } as ComfyWorkflow;
+  const node = workflow["2693"];
+  if (!node) {
+    throw new Error("MiniMax H3 workflow missing node 2693 (DirectorPlusTimeline)");
+  }
+
+  const timeline = parseJsonObject(node.inputs.timeline_data);
+  const builderState = parseJsonObject(node.inputs.builder_state);
+  builderState.simple_prompt = prompt;
+
+  const nestedBuilder = parseJsonObject(timeline.builder_state);
+  nestedBuilder.simple_prompt = prompt;
+  timeline.builder_state = nestedBuilder;
+  timeline.resolved_prompt = prompt;
+
+  const imageItem: TimelineImageItem = {
+    id: `image-${Date.now()}-0`,
+    enabled: true,
+    order: 0,
+    slot: 0,
+    start: 0,
+    duration: 1,
+    type: "image",
+    value: imageName,
+    thumbnail: null,
+    source_width: 0,
+    source_height: 0,
+  };
+  timeline.items = [imageItem];
+
+  const longVideo = parseJsonObject(timeline.long_video);
+  const clips = Array.isArray(longVideo.clips) ? longVideo.clips : [];
+  longVideo.clips = clips.map((clip) => {
+    if (!clip || typeof clip !== "object") return clip;
+    return {
+      ...(clip as Record<string, unknown>),
+      prompt,
+      use_external_prompt: true,
+    };
+  });
+  timeline.long_video = longVideo;
+
+  workflow["2693"] = {
+    ...node,
+    inputs: {
+      ...node.inputs,
+      prompt,
+      builder_state: JSON.stringify(builderState),
+      timeline_data: JSON.stringify(timeline),
+    },
+  };
+
+  return workflow;
+}
+
+/**
+ * Frame interpolation workflow: patch LoadVideo filename only.
+ * Multiplier (2) and FPS-scale stay at template values.
+ */
+export function createFrameInterpolateWorkflow(
+  videoFilename: string,
+): ComfyWorkflow {
+  const workflowPath = join(
+    process.cwd(),
+    "src",
+    "workflows",
+    "frame-interpolate.json",
+  );
+  const base = JSON.parse(readFileSync(workflowPath, "utf-8"));
+  const workflow = { ...base } as ComfyWorkflow;
+  const loadNode = workflow["4"];
+  if (!loadNode) {
+    throw new Error("Frame interpolate workflow missing node 4 (LoadVideo)");
+  }
+  workflow["4"] = {
+    ...loadNode,
+    inputs: {
+      ...loadNode.inputs,
+      file: videoFilename,
+    },
+  };
+  return workflow;
+}
+
 /**
  * Create Emotion WAN 2.2 workflow with custom parameters
  * Uses separate workflow file for emotion-based videos
@@ -195,7 +320,7 @@ export interface LoraSlotConfig {
 
 /**
  * Create image generation workflow with dynamic LoRA chain
- * Based on the cunny funky workflow with nodes 175, 188, 189, 193
+ * Based on the cunny funky workflow with nodes 175, 188, 189, 215, 214, 213, 193
  */
 export function createImageGenWorkflow(options: {
   loras: LoraSlotConfig[];
@@ -210,7 +335,7 @@ export function createImageGenWorkflow(options: {
   const baseWorkflow = JSON.parse(readFileSync(workflowPath, "utf-8"));
   const workflow = { ...baseWorkflow } as ComfyWorkflow;
 
-  const LORA_NODE_IDS = ["175", "188", "189", "193"];
+  const LORA_NODE_IDS = ["175", "188", "189", "215", "214", "213", "193"];
   const CHECKPOINT_NODE = "4";
   const ORIGINAL_LAST_LORA = "193";
 

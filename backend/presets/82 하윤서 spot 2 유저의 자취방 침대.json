@@ -14,7 +14,7 @@
   "loraSlots": [
     {
       "enabled": true,
-      "loraName": "kurobe.safetensors",
+      "loraName": "Kurobe_Natsumi_-_Senpai_ga_Uzai_Kouhai_no_Hanashi-Kaleid_Illustrious.safetensors",
       "strengthModel": 1,
       "strengthClip": 1
     },

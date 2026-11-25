@@ -1,0 +1,45 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  "styleTrigger": "",
+  "character": "1girl, solo, long hair, black hair, red eyes, huge breast, half-lidded eyes, half-closed eyes, ",
+  "outfit": "swimsuit ,one-piece swimsuit, covered navel, competition swimsuit, highleg swimsuit, spocon swimsuit, blue swimsuit, fakeclothse, painted clothes, clothes imitation, covered nipples, covered navel, covered pussy, ",
+  "backgroundPositive": "swimming pool, swimming facility, crowds, people, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "small breast, blurry, low quality, watermark,  crowds, night, dark, o-ring, o ring,\n\nindoor, simple background, plain background, urban setting, night time, dark, sunset, resort beach, vacation resort, hotel, beach resort, beach umbrella, beach chair, beach facilities, swimming pool, developed beach, pier, dock, boardwalk, buildings, tourists, crowds, multiple people, beach equipment, boats, artificial lighting, civilization, populated area,",
+  "prefixPrompt": "A beautiful anime girl with black long hair, red eyes, ",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, standing, standing on floor, angry face, dominant face, blush, aroused,",
+  "anchorAspect": "portrait",
+  "anchorWidth": 1024,
+  "anchorHeight": 1536,
+  "comfyInstanceId": "comfy2",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "takeda.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "paintend clothes2.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "이세린 컬렉션 바디페인팅 수영장",
+  "createdAt": "2026-08-03T07:38:48.178Z",
+  "updatedAt": "2026-08-03T07:38:48.178Z"
+}

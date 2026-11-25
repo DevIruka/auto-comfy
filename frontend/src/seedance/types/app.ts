@@ -66,6 +66,14 @@ export interface FolderPair {
   targetEmotions?: string[];
   targetClothing?: "all" | "clothed" | "naked";
   targetTransition?: "all" | "same" | "toneutral";
+  selectedIdlePrompts?: string[];
+  applyCommonToNaked?: boolean;
+}
+
+export interface IdlePromptOption {
+  id: string;
+  label: string;
+  kind: "base" | "common";
 }
 
 export interface AutomationRunResult {

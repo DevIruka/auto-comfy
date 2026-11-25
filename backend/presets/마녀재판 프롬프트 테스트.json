@@ -1,0 +1,62 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), ",
+  "styleTrigger": "",
+  "character": "1girl, solo, mature woman, long hair, black hair, black straight hair, gray eyes, small breast, void eyes,",
+  "outfit": "black school uniform, black blazer, white shirt, red checkered pleated skirt, red plaid skirt, cardigan, open cardigan, ",
+  "backgroundPositive": "",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "blurry, low quality, watermark, text, logo, ",
+  "prefixPrompt": "A beautiful anime woman with purple hair, purple eyes, ",
+  "compositionPose": "full body, from head to toe, standing, plain background, simple background, white background, no scenery, centered, looking at viewer, closed mouth, neutral expression, arms at sides, ",
+  "anchorAspect": "custom",
+  "anchorWidth": 720,
+  "anchorHeight": 1280,
+  "comfyInstanceId": "comfy1",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "MagicalGril.safetensors",
+      "strengthModel": 0.8,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "마녀재판 프롬프트 테스트",
+  "updatedAt": "2026-10-21T02:59:23.407Z"
+}

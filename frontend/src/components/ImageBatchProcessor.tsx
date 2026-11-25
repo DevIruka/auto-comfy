@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   comfyClient,
   type ComfyInstanceInfo,
@@ -13,15 +13,19 @@ import {
 import PresetPicker from "./PresetPicker";
 import type { CharacterPreset } from "../api/presets-client";
 import { useWorkspace } from "../context/WorkspaceContext";
+import {
+  defaultLoraSlots,
+  padLoraSlots,
+  extraLoraLabel,
+  EXTRA_LORA_START,
+  type LoraSlotState,
+} from "../utils/lora-slots";
+import { resolvePresetInstanceId } from "../utils/resolve-preset-instance";
+import { useInstanceLoras } from "../context/LoraListContext";
+import { LoraNameSelect, LoraSearchInput } from "./LoraNameSelect";
 import "./ImageBatchProcessor.css";
 
-interface LoraSlot {
-  enabled: boolean;
-  loraName: string;
-  strengthModel: number;
-  strengthClip: number;
-}
-
+type LoraSlot = LoraSlotState;
 
 interface PoseRow {
   name: string;
@@ -30,13 +34,6 @@ interface PoseRow {
   availableExpressions: string[];
   handFix: boolean;
 }
-
-const DEFAULT_LORAS: LoraSlot[] = [
-  { enabled: true, loraName: "", strengthModel: 1, strengthClip: 1 },
-  { enabled: true, loraName: "", strengthModel: 1, strengthClip: 1 },
-  { enabled: false, loraName: "", strengthModel: 1, strengthClip: 1 },
-  { enabled: false, loraName: "", strengthModel: 1, strengthClip: 1 },
-];
 
 const DEFAULT_HAND_FIX_POSITIVE =
   "clear fingers, distinct fingers, defined fingers, separated fingers, detailed hand, correct finger count, five fingers, anatomically correct hand, proper finger spacing, clean hand anatomy";
@@ -59,10 +56,12 @@ function CollapsibleBlock({
   label,
   children,
   defaultOpen = false,
+  tag,
 }: {
   label: string;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  tag?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
@@ -70,7 +69,7 @@ function CollapsibleBlock({
       <div className="ib-prompt-block-header" onClick={() => setOpen(!open)}>
         <span className="ib-collapse-arrow">{open ? "▼" : "▶"}</span>
         <span className="ib-prompt-block-label">{label}</span>
-        <span className="ib-prompt-block-tag fixed">fixed</span>
+        {tag ? <span className="ib-prompt-block-tag fixed">{tag}</span> : null}
       </div>
       {open && <div className="ib-prompt-block-body">{children}</div>}
     </div>
@@ -81,9 +80,10 @@ export default function ImageBatchProcessor() {
   // ComfyUI instances
   const [instances, setInstances] = useState<ComfyInstanceInfo[]>([]);
   const [selectedInstance, setSelectedInstance] = useState("");
-  const [loraList, setLoraList] = useState<string[]>([]);
-  const [loraSlots, setLoraSlots] = useState<LoraSlot[]>(DEFAULT_LORAS);
-  const [loadingLoras, setLoadingLoras] = useState(false);
+  const [loraSlots, setLoraSlots] = useState<LoraSlot[]>(() => defaultLoraSlots());
+  const [loraFilter, setLoraFilter] = useState("");
+  const { loraList, loadingLoras, listReady, listError, refreshLoras } =
+    useInstanceLoras(selectedInstance);
 
   // Prompt blocks (shared)
   const [fixedPrefix, setFixedPrefix] = useState(DEFAULT_FIXED_PREFIX);
@@ -103,6 +103,12 @@ export default function ImageBatchProcessor() {
   const [poseRows, setPoseRows] = useState<PoseRow[]>([]);
   const [defaultExpression, setDefaultExpression] = useState("Normal");
   const [allSelected, setAllSelected] = useState(true);
+  const [promptPatchEnabled, setPromptPatchEnabled] = useState(false);
+  const [promptPatchAdd, setPromptPatchAdd] = useState("");
+  const [promptPatchRemove, setPromptPatchRemove] = useState("");
+  const [promptPatchAddPosition, setPromptPatchAddPosition] = useState<
+    "prepend" | "append"
+  >("append");
 
   // Video prefix prompt (preset storage only, not used for image generation)
   const [videoPrefixPrompt, setVideoPrefixPrompt] = useState("");
@@ -111,7 +117,12 @@ export default function ImageBatchProcessor() {
   // Preset outfit mode: load from preset or force nude
   const [presetOutfitMode, setPresetOutfitMode] = useState<"preset" | "nude">("nude");
 
-  // Batch size + output (포즈당 3회 완전 랜덤 시드)
+  // Canvas size + batch size + output (포즈당 3회 완전 랜덤 시드)
+  const [imageAspect, setImageAspect] = useState<
+    "portrait" | "shortform" | "custom"
+  >("shortform");
+  const [customWidth, setCustomWidth] = useState(720);
+  const [customHeight, setCustomHeight] = useState(1280);
   const [batchSize, setBatchSize] = useState(4);
   const { character: wsCharacter, spot: wsSpot, paths, workspaceReady, resolveError } = useWorkspace();
   const outputPath = paths?.imageAdult ?? "";
@@ -159,24 +170,6 @@ export default function ImageBatchProcessor() {
       })
       .catch(console.error);
   }, []);
-
-  // Fetch LoRAs
-  const fetchLoras = useCallback(async () => {
-    if (!selectedInstance) return;
-    setLoadingLoras(true);
-    try {
-      const loras = await comfyClient.getLoraList(selectedInstance);
-      setLoraList(loras);
-    } catch (err) {
-      console.error("Failed to fetch LoRAs:", err);
-    } finally {
-      setLoadingLoras(false);
-    }
-  }, [selectedInstance]);
-
-  useEffect(() => {
-    if (selectedInstance) fetchLoras();
-  }, [selectedInstance, fetchLoras]);
 
   // WebSocket: queue state + progress
   useEffect(() => {
@@ -240,6 +233,89 @@ export default function ImageBatchProcessor() {
     );
   };
 
+  const renderLoraSlot = (slot: LoraSlot, i: number) => (
+    <div
+      key={i}
+      className={`ib-lora-slot ${!slot.enabled ? "disabled" : ""}`}
+    >
+      <label className="ib-check">
+        <input
+          type="checkbox"
+          checked={slot.enabled}
+          onChange={(e) =>
+            updateLoraSlot(i, { enabled: e.target.checked })
+          }
+        />
+        <span>LoRA {i + 1}</span>
+      </label>
+      {slot.enabled && (
+        <div className="ib-lora-body">
+          <LoraNameSelect
+            names={loraList}
+            value={slot.loraName}
+            onChange={(name) => updateLoraSlot(i, { loraName: name })}
+            filter={loraFilter}
+            className="ib-select ib-select-sm"
+            loading={loadingLoras}
+            listReady={listReady}
+            listError={listError}
+          />
+          <div className="ib-strengths">
+            <div>
+              <label>Model</label>
+              <input
+                type="number"
+                step="0.1"
+                value={slot.strengthModel}
+                onChange={(e) =>
+                  updateLoraSlot(i, {
+                    strengthModel: parseFloat(e.target.value) || 0,
+                  })
+                }
+              />
+            </div>
+            <div>
+              <label>CLIP</label>
+              <input
+                type="number"
+                step="0.1"
+                value={slot.strengthClip}
+                onChange={(e) =>
+                  updateLoraSlot(i, {
+                    strengthClip: parseFloat(e.target.value) || 0,
+                  })
+                }
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const defaultExpressionOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    for (const row of poseRows) {
+      for (const ex of row.availableExpressions) {
+        if (!seen.has(ex)) {
+          seen.add(ex);
+          ordered.push(ex);
+        }
+      }
+    }
+    return ordered;
+  }, [poseRows]);
+
+  useEffect(() => {
+    if (
+      defaultExpressionOptions.length > 0 &&
+      !defaultExpressionOptions.includes(defaultExpression)
+    ) {
+      setDefaultExpression(defaultExpressionOptions[0]);
+    }
+  }, [defaultExpressionOptions, defaultExpression]);
+
   const selectedPoses = poseRows.filter((r) => r.selected);
   const RUNS_PER_POSE = 3;
   const totalTasks = selectedPoses.reduce(
@@ -262,14 +338,31 @@ export default function ImageBatchProcessor() {
     if (preset.fixedNegative !== undefined) setFixedNegative(preset.fixedNegative);
     if (preset.backgroundNegative !== undefined) setBackgroundNegative(preset.backgroundNegative);
     if (preset.prefixPrompt !== undefined) setVideoPrefixPrompt(preset.prefixPrompt);
-    if (preset.comfyInstanceId !== undefined) setSelectedInstance(preset.comfyInstanceId);
+    setSelectedInstance(resolvePresetInstanceId(preset.comfyInstanceId, instances));
     if (preset.loraSlots?.length) {
-      setLoraSlots(preset.loraSlots.map((s) => ({
-        enabled: s.enabled,
-        loraName: s.loraName,
-        strengthModel: s.strengthModel,
-        strengthClip: s.strengthClip,
-      })));
+      setLoraSlots(padLoraSlots(preset.loraSlots));
+    }
+    if (
+      preset.imageAspect === "portrait" ||
+      preset.imageAspect === "shortform" ||
+      preset.imageAspect === "custom"
+    ) {
+      setImageAspect(preset.imageAspect);
+    }
+    if (typeof preset.imageWidth === "number") setCustomWidth(preset.imageWidth);
+    if (typeof preset.imageHeight === "number") setCustomHeight(preset.imageHeight);
+    if (preset.promptPatch) {
+      setPromptPatchEnabled(!!preset.promptPatch.enabled);
+      setPromptPatchAdd(preset.promptPatch.addText ?? "");
+      setPromptPatchRemove(preset.promptPatch.removeText ?? "");
+      setPromptPatchAddPosition(
+        preset.promptPatch.addPosition === "prepend" ? "prepend" : "append",
+      );
+    } else {
+      setPromptPatchEnabled(false);
+      setPromptPatchAdd("");
+      setPromptPatchRemove("");
+      setPromptPatchAddPosition("append");
     }
   };
 
@@ -290,6 +383,15 @@ export default function ImageBatchProcessor() {
       strengthModel: s.strengthModel,
       strengthClip: s.strengthClip,
     })),
+    imageAspect,
+    imageWidth: customWidth,
+    imageHeight: customHeight,
+    promptPatch: {
+      enabled: promptPatchEnabled,
+      addText: promptPatchAdd,
+      removeText: promptPatchRemove,
+      addPosition: promptPatchAddPosition,
+    },
   });
 
   const resetFormForNextJob = () => {
@@ -303,7 +405,10 @@ export default function ImageBatchProcessor() {
     setBackgroundNegative("");
     setHandFixPositive(DEFAULT_HAND_FIX_POSITIVE);
     setHandFixNegative(DEFAULT_HAND_FIX_NEGATIVE);
-    setLoraSlots(JSON.parse(JSON.stringify(DEFAULT_LORAS)));
+    setLoraSlots(defaultLoraSlots());
+    setImageAspect("shortform");
+    setCustomWidth(720);
+    setCustomHeight(1280);
   };
 
   const handleStart = async () => {
@@ -343,8 +448,18 @@ export default function ImageBatchProcessor() {
           expression: p.expression,
           handFix: p.handFix,
         })),
+        promptPatch: {
+          enabled: promptPatchEnabled,
+          addText: promptPatchAdd,
+          removeText: promptPatchRemove,
+          addPosition: promptPatchAddPosition,
+        },
         batchSize,
         outputPath,
+        aspect: imageAspect,
+        ...(imageAspect === "custom"
+          ? { width: customWidth, height: customHeight }
+          : {}),
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -454,77 +569,21 @@ export default function ImageBatchProcessor() {
           <div className="ib-section ib-lora-section">
             <div className="ib-section-row">
               <h3>LoRA Configuration</h3>
+              <LoraSearchInput value={loraFilter} onChange={setLoraFilter} />
               <button
                 className="ib-btn-sm"
-                onClick={fetchLoras}
+                onClick={refreshLoras}
                 disabled={loadingLoras}
               >
                 {loadingLoras ? "..." : "Refresh"}
               </button>
             </div>
-            {loraSlots.map((slot, i) => (
-              <div
-                key={i}
-                className={`ib-lora-slot ${!slot.enabled ? "disabled" : ""}`}
-              >
-                <label className="ib-check">
-                  <input
-                    type="checkbox"
-                    checked={slot.enabled}
-                    onChange={(e) =>
-                      updateLoraSlot(i, { enabled: e.target.checked })
-                    }
-                  />
-                  <span>LoRA {i + 1}</span>
-                </label>
-                {slot.enabled && (
-                  <div className="ib-lora-body">
-                    <select
-                      value={slot.loraName}
-                      onChange={(e) =>
-                        updateLoraSlot(i, { loraName: e.target.value })
-                      }
-                      className="ib-select ib-select-sm"
-                    >
-                      <option value="">-- Select --</option>
-                      {loraList.map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="ib-strengths">
-                      <div>
-                        <label>Model</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={slot.strengthModel}
-                          onChange={(e) =>
-                            updateLoraSlot(i, {
-                              strengthModel: parseFloat(e.target.value) || 0,
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label>CLIP</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={slot.strengthClip}
-                          onChange={(e) =>
-                            updateLoraSlot(i, {
-                              strengthClip: parseFloat(e.target.value) || 0,
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+            {loraSlots.slice(0, EXTRA_LORA_START).map((slot, i) => renderLoraSlot(slot, i))}
+            <CollapsibleBlock label={extraLoraLabel(loraSlots)}>
+              {loraSlots
+                .slice(EXTRA_LORA_START)
+                .map((slot, j) => renderLoraSlot(slot, j + EXTRA_LORA_START))}
+            </CollapsibleBlock>
           </div>
 
           <div className="ib-divider" />
@@ -532,7 +591,7 @@ export default function ImageBatchProcessor() {
           {/* Positive Prompt Blocks */}
           <h3 className="ib-section-title">Positive Prompt</h3>
 
-          <CollapsibleBlock label="Fixed Prefix (artists)">
+          <CollapsibleBlock label="Fixed Prefix (artists)" tag="fixed">
             <textarea
               value={fixedPrefix}
               onChange={(e) => setFixedPrefix(e.target.value)}
@@ -610,7 +669,7 @@ export default function ImageBatchProcessor() {
             </div>
           </div>
 
-          <CollapsibleBlock label="Fixed Suffix (quality)">
+          <CollapsibleBlock label="Fixed Suffix (quality)" tag="fixed">
             <textarea
               value={fixedSuffix}
               onChange={(e) => setFixedSuffix(e.target.value)}
@@ -623,7 +682,7 @@ export default function ImageBatchProcessor() {
           {/* Negative Prompt Blocks */}
           <h3 className="ib-section-title">Negative Prompt</h3>
 
-          <CollapsibleBlock label="Fixed Negative (standard)">
+          <CollapsibleBlock label="Fixed Negative (standard)" tag="fixed">
             <textarea
               value={fixedNegative}
               onChange={(e) => setFixedNegative(e.target.value)}
@@ -695,6 +754,54 @@ export default function ImageBatchProcessor() {
             포즈당 3번 요청 (시드 완전 랜덤)
           </p>
 
+          <div className="ib-section">
+            <label className="ib-label">캔버스 비율</label>
+            <div className="ib-hint" style={{ marginBottom: "0.5rem" }}>
+              {imageAspect === "custom"
+                ? "직접 입력: 가로·세로를 지정 (8의 배수로 자동 보정, 256~2048)"
+                : "숏폼 720×1280 · 세로 1024×1536"}
+            </div>
+            <select
+              className="ib-select"
+              value={imageAspect}
+              onChange={(e) =>
+                setImageAspect(
+                  e.target.value as "portrait" | "shortform" | "custom",
+                )
+              }
+            >
+              <option value="shortform">숏폼 (720×1280)</option>
+              <option value="portrait">세로 (1024×1536)</option>
+              <option value="custom">직접 입력</option>
+            </select>
+            {imageAspect === "custom" && (
+              <div className="ib-strengths" style={{ marginTop: "0.5rem" }}>
+                <div>
+                  <label>가로 (width)</label>
+                  <input
+                    type="number"
+                    min={256}
+                    max={2048}
+                    step={8}
+                    value={customWidth}
+                    onChange={(e) => setCustomWidth(Number(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <label>세로 (height)</label>
+                  <input
+                    type="number"
+                    min={256}
+                    max={2048}
+                    step={8}
+                    value={customHeight}
+                    onChange={(e) => setCustomHeight(Number(e.target.value))}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="ib-row">
             <div className="ib-section" style={{ flex: 1 }}>
               <label className="ib-label">Batch Size</label>
@@ -739,12 +846,69 @@ export default function ImageBatchProcessor() {
                   value={defaultExpression}
                   onChange={(e) => applyDefaultExpression(e.target.value)}
                   className="ib-select ib-select-sm"
+                  disabled={defaultExpressionOptions.length === 0}
                 >
-                  <option value="Normal">Normal</option>
-                  <option value="Disdain">Disdain</option>
-                  <option value="Frightened">Frightened</option>
+                  {defaultExpressionOptions.map((ex) => (
+                    <option key={ex} value={ex}>
+                      {ex}
+                    </option>
+                  ))}
                 </select>
               </div>
+            </div>
+
+            <div className="ib-prompt-patch">
+              <label className="ib-check">
+                <input
+                  type="checkbox"
+                  checked={promptPatchEnabled}
+                  onChange={(e) => setPromptPatchEnabled(e.target.checked)}
+                />
+                <span>포즈 프롬프트 가감</span>
+              </label>
+              {promptPatchEnabled && (
+                <div className="ib-prompt-patch-fields">
+                  <div className="ib-prompt-patch-field">
+                    <label>추가 텍스트</label>
+                    <textarea
+                      value={promptPatchAdd}
+                      onChange={(e) => setPromptPatchAdd(e.target.value)}
+                      rows={2}
+                      placeholder="예: closed mouth, looking at viewer,"
+                    />
+                    <div className="ib-prompt-patch-position">
+                      <span>추가 위치</span>
+                      <label>
+                        <input
+                          type="radio"
+                          name="promptPatchAddPosition"
+                          checked={promptPatchAddPosition === "prepend"}
+                          onChange={() => setPromptPatchAddPosition("prepend")}
+                        />
+                        맨 앞
+                      </label>
+                      <label>
+                        <input
+                          type="radio"
+                          name="promptPatchAddPosition"
+                          checked={promptPatchAddPosition === "append"}
+                          onChange={() => setPromptPatchAddPosition("append")}
+                        />
+                        맨 뒤
+                      </label>
+                    </div>
+                  </div>
+                  <div className="ib-prompt-patch-field">
+                    <label>제거 텍스트</label>
+                    <textarea
+                      value={promptPatchRemove}
+                      onChange={(e) => setPromptPatchRemove(e.target.value)}
+                      rows={2}
+                      placeholder="예: tongue out, ahegao,"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="ib-pose-list">

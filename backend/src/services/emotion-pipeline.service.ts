@@ -10,8 +10,6 @@ export type { SdxlWaiPromptBlocks, SdxlWaiLoraSlot };
 
 const IMAGE_EXT = new Set([".png", ".jpg", ".jpeg", ".webp", ".bmp"]);
 const EMOTIONS = ["Happy", "Aroused", "Sad", "Angry"] as const;
-/** Neutral 폴더는 업스케일 시드 횟수와 무관하게 항상 1회만 실행 */
-const NEUTRAL_UPSCALE_ROUNDS = 1;
 const SAVE_NODE_ID = "1044";
 
 export interface EmotionConfig {
@@ -178,6 +176,166 @@ async function listImagesInDir(dir: string): Promise<string[]> {
     if (IMAGE_EXT.has(ext)) files.push(join(dir, e.name));
   }
   return files.sort();
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function missingIndices(existing: Set<number>, count: number): number[] {
+  const missing: number[] = [];
+  for (let i = 0; i < count; i++) {
+    if (!existing.has(i)) missing.push(i);
+  }
+  return missing;
+}
+
+/** Parse `{base}_{emotion}_{n}.ext` indices (case-insensitive). */
+export async function listExistingEmotionIndices(
+  emotionDir: string,
+  emotion: string,
+  baseName: string,
+): Promise<Set<number>> {
+  const files = await readdir(emotionDir).catch(() => []);
+  const pattern = new RegExp(
+    `^${escapeRegExp(baseName)}_${escapeRegExp(emotion)}_(\\d+)\\.(?:png|jpg|jpeg|webp|bmp)$`,
+    "i",
+  );
+  const numbers = new Set<number>();
+  for (const file of files) {
+    const match = file.match(pattern);
+    if (match) numbers.add(Number(match[1]));
+  }
+  return numbers;
+}
+
+export interface EmotionSlotPlan {
+  imagePath: string;
+  baseName: string;
+  needNeutral: boolean;
+  missingByEmotion: Record<(typeof EMOTIONS)[number], number[]>;
+  pending: number;
+  skipped: number;
+}
+
+export interface EmotionPipelineScanResult {
+  images: number;
+  pending: number;
+  skipped: number;
+  sources: Array<{
+    baseName: string;
+    pending: number;
+    skipped: number;
+    needNeutral: boolean;
+    missingByEmotion: Record<string, number[]>;
+  }>;
+}
+
+export async function buildEmotionSlotPlans(
+  folderPath: string,
+  useOriginSubfolder: boolean,
+  upscaleSeedCount: number,
+): Promise<{
+  scanDir: string;
+  imagePaths: string[];
+  emotionsFolder: string;
+  totalSeeds: number;
+  plans: EmotionSlotPlan[];
+  pending: number;
+  skipped: number;
+}> {
+  const totalSeeds = Math.max(3, Math.floor(upscaleSeedCount));
+  const { scanDir, imagePaths } = await scanImagePaths(folderPath, useOriginSubfolder);
+  const emotionsFolder = join(folderPath, "Emotions");
+  const plans: EmotionSlotPlan[] = [];
+
+  for (const imagePath of imagePaths) {
+    const baseName = basename(imagePath, extname(imagePath));
+    const existingNeutral = await listExistingEmotionIndices(
+      join(emotionsFolder, "Neutral"),
+      "Neutral",
+      baseName,
+    );
+    const needNeutral = !existingNeutral.has(0);
+    let pending = needNeutral ? 1 : 0;
+    let skipped = needNeutral ? 0 : 1;
+    const missingByEmotion = {} as EmotionSlotPlan["missingByEmotion"];
+
+    for (const emotion of EMOTIONS) {
+      const existing = await listExistingEmotionIndices(
+        join(emotionsFolder, emotion),
+        emotion,
+        baseName,
+      );
+      const missing = missingIndices(existing, totalSeeds);
+      missingByEmotion[emotion] = missing;
+      pending += missing.length;
+      skipped += totalSeeds - missing.length;
+    }
+
+    plans.push({
+      imagePath,
+      baseName,
+      needNeutral,
+      missingByEmotion,
+      pending,
+      skipped,
+    });
+  }
+
+  return {
+    scanDir,
+    imagePaths,
+    emotionsFolder,
+    totalSeeds,
+    plans,
+    pending: plans.reduce((sum, p) => sum + p.pending, 0),
+    skipped: plans.reduce((sum, p) => sum + p.skipped, 0),
+  };
+}
+
+export async function scanEmotionPipeline(params: {
+  folderPath: string;
+  upscaleSeedCount?: number;
+  useOriginSubfolder?: boolean;
+}): Promise<EmotionPipelineScanResult> {
+  const built = await buildEmotionSlotPlans(
+    params.folderPath,
+    params.useOriginSubfolder !== false,
+    typeof params.upscaleSeedCount === "number" ? params.upscaleSeedCount : 3,
+  );
+  return {
+    images: built.imagePaths.length,
+    pending: built.pending,
+    skipped: built.skipped,
+    sources: built.plans.map((p) => ({
+      baseName: p.baseName,
+      pending: p.pending,
+      skipped: p.skipped,
+      needNeutral: p.needNeutral,
+      missingByEmotion: p.missingByEmotion,
+    })),
+  };
+}
+
+function findMaskedForOriginal(
+  imagePath: string,
+  allImagePaths: string[],
+  maskedFiles: string[],
+): string | null {
+  const byName = new Map(maskedFiles.map((p) => [basename(p).toLowerCase(), p]));
+  const stem = basename(imagePath, extname(imagePath));
+  const names = [`${stem}.png`, `${stem}_fail.png`];
+  const idx = allImagePaths.indexOf(imagePath);
+  if (idx >= 0 && allImagePaths.length > 1) {
+    const prefixed = `${String(idx).padStart(4, "0")}_${stem}`;
+    names.push(`${prefixed}.png`, `${prefixed}_fail.png`);
+  }
+  for (const name of names) {
+    const found = byName.get(name.toLowerCase());
+    if (found) return found;
+  }
+  return null;
 }
 
 /**
@@ -393,72 +551,105 @@ export async function startEmotionPipeline(
     const comfy = comfyManager.getInstance(comfyInstanceId);
     const emotionConfig = await loadEmotionConfig();
 
-    const { scanDir, imagePaths } = await scanImagePaths(
+    const built = await buildEmotionSlotPlans(
       folderPath,
-      useOriginSubfolder
+      useOriginSubfolder,
+      upscaleSeedCount
     );
+    const { scanDir, imagePaths, emotionsFolder, plans } = built;
     if (imagePaths.length === 0) {
       throw new Error(
         "No images found in the job folder (or in a \"원본\" subfolder when that option is on)"
       );
     }
-    addLog(jobId, `Found ${imagePaths.length} images`);
+    addLog(
+      jobId,
+      `Found ${imagePaths.length} images · 생성 ${built.pending} · 스킵 ${built.skipped}`
+    );
 
-    const existingMaskedDir = await findExistingMaskedDir(scanDir, folderPath);
-    let masked: { inputPath: string; outputPath: string }[];
-
-    if (existingMaskedDir) {
-      const maskedFiles = await listImagesInDir(existingMaskedDir);
-      addLog(
-        jobId,
-        `Using existing masked folder (${existingMaskedDir}): ${maskedFiles.length} images, skipping face mask`
-      );
-      masked = pairOriginalsWithExistingMasked(imagePaths, maskedFiles);
-    } else {
-      const maskedOutputDir = join(folderPath, "masked");
-      masked = await runFaceMaskWithLock(
-        imagePaths,
-        faceMaskDir,
-        jobId,
-        maskedOutputDir
-      );
-      if (masked.length === 0) {
-        throw new Error("Face mask produced no outputs");
-      }
+    if (built.pending === 0) {
+      setStep(jobId, 0, 0);
+      job.status = "completed";
+      addLog(jobId, "All emotion slots already exist — nothing to generate");
+      return;
     }
 
-    const emotionsFolder = join(folderPath, "Emotions");
     await mkdir(emotionsFolder, { recursive: true });
     await mkdir(join(emotionsFolder, "Neutral"), { recursive: true });
     for (const em of EMOTIONS) {
       await mkdir(join(emotionsFolder, em), { recursive: true });
     }
 
-    const isStopped = () => stopRequested.get(jobId) === true;
+    const needMaskPlans = plans.filter((p) =>
+      EMOTIONS.some((em) => p.missingByEmotion[em].length > 0)
+    );
+    const maskedMap = new Map<string, string>();
 
-    // Total steps: Neutral upscale (fixed rounds) + 4 emotions (inpaint+upscale = 2 steps/round)
-    const totalSteps =
-      masked.length *
-      (NEUTRAL_UPSCALE_ROUNDS + EMOTIONS.length * totalSeeds * 2);
+    if (needMaskPlans.length > 0) {
+      const existingMaskedDir = await findExistingMaskedDir(scanDir, folderPath);
+      if (existingMaskedDir) {
+        const maskedFiles = await listImagesInDir(existingMaskedDir);
+        addLog(
+          jobId,
+          `Using existing masked folder (${existingMaskedDir}): ${maskedFiles.length} images, skipping face mask`
+        );
+        for (const plan of needMaskPlans) {
+          const maskedPath = findMaskedForOriginal(
+            plan.imagePath,
+            imagePaths,
+            maskedFiles
+          );
+          if (!maskedPath) {
+            throw new Error(
+              `Existing masked folder: no file matching original "${basename(plan.imagePath)}"`
+            );
+          }
+          maskedMap.set(plan.imagePath, maskedPath);
+        }
+      } else {
+        const toMask = needMaskPlans.map((p) => p.imagePath);
+        const maskedOutputDir = join(folderPath, "masked");
+        const masked = await runFaceMaskWithLock(
+          toMask,
+          faceMaskDir,
+          jobId,
+          maskedOutputDir
+        );
+        if (masked.length === 0) {
+          throw new Error("Face mask produced no outputs");
+        }
+        for (const pair of masked) {
+          maskedMap.set(pair.inputPath, pair.outputPath);
+        }
+      }
+    } else {
+      addLog(jobId, "No missing emotion slots — skipping face mask");
+    }
+
+    const isStopped = () => stopRequested.get(jobId) === true;
+    const pendingEmotionSlots = plans.reduce(
+      (sum, p) =>
+        sum + EMOTIONS.reduce((s, em) => s + p.missingByEmotion[em].length, 0),
+      0
+    );
+    const pendingNeutral = plans.filter((p) => p.needNeutral).length;
+    const totalSteps = pendingNeutral + pendingEmotionSlots * 2;
     setStep(jobId, 0, totalSteps);
     let step = 0;
 
-    for (const { inputPath, outputPath } of masked) {
+    for (const plan of plans) {
       if (isStopped()) break;
-      const baseName = basename(inputPath, extname(inputPath));
+      const { imagePath, baseName } = plan;
 
-      // --- Neutral: upscale original (unmasked) image directly, no inpaint ---
-      const originalBuffer = await readFile(inputPath);
-      for (let round = 0; round < NEUTRAL_UPSCALE_ROUNDS; round++) {
-        if (isStopped()) break;
+      if (plan.needNeutral) {
+        const originalBuffer = await readFile(imagePath);
         const seedNeutral = Math.floor(Math.random() * 1e15);
-        const neutralUploadName = `neutral_${baseName}_r${round}.png`;
         const dimsNeutral = getPngDimensions(originalBuffer);
-        addLog(jobId, `Neutral: Upscale for ${baseName} (1회, 시드 횟수 설정 무관)`);
+        addLog(jobId, `Generate Neutral/${baseName}_Neutral_0`);
         const neutralResult = await runWorkflowWithUpload(
           comfy,
           originalBuffer,
-          neutralUploadName,
+          `neutral_${baseName}_r0.png`,
           {
             seed: seedNeutral,
             promptBlocks: baseBlocks,
@@ -471,37 +662,64 @@ export async function startEmotionPipeline(
         step++;
         setStep(jobId, step, totalSteps);
 
-        const neutralImg = getFirstImageFromOutput(neutralResult.outputs, HIRES_SAVE_NODE_ID);
+        const neutralImg = getFirstImageFromOutput(
+          neutralResult.outputs,
+          HIRES_SAVE_NODE_ID
+        );
         if (neutralImg) {
-          const neutralBuf = await comfy.getImage(neutralImg.filename, neutralImg.subfolder || "", neutralImg.type || "output");
-          const neutralOutPath = join(emotionsFolder, "Neutral", `${baseName}_Neutral_${round}.png`);
+          const neutralBuf = await comfy.getImage(
+            neutralImg.filename,
+            neutralImg.subfolder || "",
+            neutralImg.type || "output"
+          );
+          const neutralOutPath = join(
+            emotionsFolder,
+            "Neutral",
+            `${baseName}_Neutral_0.png`
+          );
           await writeFile(neutralOutPath, neutralBuf);
-          addLog(jobId, `Saved: Neutral/${baseName}_Neutral_${round}.png`);
+          addLog(jobId, `Saved: Neutral/${baseName}_Neutral_0.png`);
         }
+      } else {
+        addLog(jobId, `Skip Neutral/${baseName}_Neutral_0`);
       }
 
-      // --- 4 Emotions: inpaint → upscale ---
+      const missingAny = EMOTIONS.some((em) => plan.missingByEmotion[em].length > 0);
+      if (!missingAny) continue;
+
+      const outputPath = maskedMap.get(imagePath);
+      if (!outputPath) {
+        throw new Error(`No masked image for ${baseName}`);
+      }
+      const maskedBuffer = await readFile(outputPath);
+
       for (const emotion of EMOTIONS) {
         if (isStopped()) break;
-        const emotionPrompt = (emotionConfig as unknown as Record<string, string>)[emotion] ?? "";
+        const emotionPrompt =
+          (emotionConfig as unknown as Record<string, string>)[emotion] ?? "";
         const promptBlocks: SdxlWaiPromptBlocks = {
           ...baseBlocks,
           emotion: emotionPrompt,
         };
+        const missing = plan.missingByEmotion[emotion];
+        for (let k = 0; k < totalSeeds; k++) {
+          if (!missing.includes(k)) {
+            addLog(jobId, `Skip ${emotion}/${baseName}_${emotion}_${k}`);
+          }
+        }
 
-        const maskedBuffer = await readFile(outputPath);
-
-        for (let round = 0; round < totalSeeds; round++) {
+        for (const round of missing) {
           if (isStopped()) break;
           const seedInpaint = Math.floor(Math.random() * 1e15);
-          const uploadName = `emotion_${baseName}_${emotion}_r${round}.png`;
-
           const dims = getPngDimensions(maskedBuffer);
-          addLog(jobId, `Round ${round + 1}/${totalSeeds}: Inpaint → Upscale for ${baseName} / ${emotion}`);
+          addLog(
+            jobId,
+            `Generate ${emotion}/${baseName}_${emotion}_${round} (inpaint → upscale)`
+          );
           const inpaintResult = await runWorkflowWithUpload(
             comfy,
             maskedBuffer,
-            uploadName,
+            `emotion_${baseName}_${emotion}_r${round}.png`,
             {
               seed: seedInpaint,
               promptBlocks,
@@ -518,20 +736,23 @@ export async function startEmotionPipeline(
 
           const firstImage = getFirstImageFromOutput(inpaintResult.outputs);
           if (!firstImage) {
-            addLog(jobId, `No output from inpaint for ${emotion} round ${round + 1}`);
+            addLog(jobId, `No output from inpaint for ${emotion} ${baseName}_${round}`);
             step++;
             setStep(jobId, step, totalSteps);
             continue;
           }
 
-          const inpaintBuffer = await comfy.getImage(firstImage.filename, firstImage.subfolder || "", firstImage.type || "output");
+          const inpaintBuffer = await comfy.getImage(
+            firstImage.filename,
+            firstImage.subfolder || "",
+            firstImage.type || "output"
+          );
           const dimsUpscale = getPngDimensions(inpaintBuffer);
           const seedUpscale = Math.floor(Math.random() * 1e15);
-          const upscaleUploadName = `upscale_${baseName}_${emotion}_r${round}.png`;
           const upscaleResult = await runWorkflowWithUpload(
             comfy,
             inpaintBuffer,
-            upscaleUploadName,
+            `upscale_${baseName}_${emotion}_r${round}.png`,
             {
               seed: seedUpscale,
               promptBlocks,
@@ -544,10 +765,21 @@ export async function startEmotionPipeline(
           step++;
           setStep(jobId, step, totalSteps);
 
-          const upImg = getFirstImageFromOutput(upscaleResult.outputs, HIRES_SAVE_NODE_ID);
+          const upImg = getFirstImageFromOutput(
+            upscaleResult.outputs,
+            HIRES_SAVE_NODE_ID
+          );
           if (upImg) {
-            const upBuf = await comfy.getImage(upImg.filename, upImg.subfolder || "", upImg.type || "output");
-            const outPath = join(emotionsFolder, emotion, `${baseName}_${emotion}_${round}.png`);
+            const upBuf = await comfy.getImage(
+              upImg.filename,
+              upImg.subfolder || "",
+              upImg.type || "output"
+            );
+            const outPath = join(
+              emotionsFolder,
+              emotion,
+              `${baseName}_${emotion}_${round}.png`
+            );
             await writeFile(outPath, upBuf);
             addLog(jobId, `Saved: ${emotion}/${baseName}_${emotion}_${round}.png`);
           }

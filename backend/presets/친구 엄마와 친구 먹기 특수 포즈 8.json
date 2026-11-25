@@ -1,0 +1,63 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\\\(deadflow\\\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  "styleTrigger": "hnyrm, mature woman, TRexStyle,, (anime coloring, anime screencap), ",
+  "character": "1girl, solo, long hair, brown hair, mature female, (mole under mouth:0.8), brown eyes, wavy hair, hair behind ear, round cheek, frightened face, \n\nround face, slightly chubby cheeks, mature facial features, ",
+  "outfit": "nude, completely nude,  white panties hanging on one leg, ",
+  "backgroundPositive": "modern kitchen, gas stove, pot on stove with steam, countertop, tiles, realistic kitchen interior, warm lighting, detailed background",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, short hair, logo, eyelashes, bangs, hair bangs, ",
+  "prefixPrompt": "",
+  "compositionPose": "one hand covering mouth, looking nervously toward the room, anxious expression, legs spread wide, holding her own thighs with both hands, sex, standing, standing split sex, leg spilt, penis in pussy, cock inside pussy, insertion, deep penetration, \n\nembarassed, scared expression, frightened, fearful, afraid, terrified look, teary eyes, tears in eyes, trembling, shaking, nervous, anxious, worried expression, timid, submissive, intimidated, overwhelmed, vulnerable expression, but aroused, reluctantly aroused, flushed face despite fear, blushing, deep blush, sweating, sweat drops, nervous sweat, mixed emotions, narrowed eyes, sharp gaze, orgasm, trembling, orgasmic face, \n",
+  "anchorAspect": "portrait",
+  "anchorWidth": 1024,
+  "anchorHeight": 1536,
+  "comfyInstanceId": "comfy1",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "Han Yuri Anima.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "mature slider.safetensors",
+      "strengthModel": -1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "RoundCheek_Illustrious.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "trex.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "RoundCheek_Illustrious.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "친구 엄마와 친구 먹기 특수 포즈 8",
+  "createdAt": "2026-09-30T08:19:37.435Z",
+  "updatedAt": "2026-09-30T08:19:37.435Z"
+}

@@ -22,11 +22,28 @@ anchorImageRouter.post(
         .status(400)
         .json({ success: false, error: "outputPath is required" });
     }
-    if (params.aspect !== "portrait" && params.aspect !== "landscape") {
+    if (
+      params.aspect !== "portrait" &&
+      params.aspect !== "landscape" &&
+      params.aspect !== "shortform" &&
+      params.aspect !== "custom"
+    ) {
       return res.status(400).json({
         success: false,
-        error: 'aspect must be "portrait" or "landscape"',
+        error:
+          'aspect must be "portrait", "landscape", "shortform", or "custom"',
       });
+    }
+    if (params.aspect === "custom") {
+      const isValid = (v: unknown) =>
+        typeof v === "number" && Number.isFinite(v) && v >= 256 && v <= 2048;
+      if (!isValid(params.width) || !isValid(params.height)) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "custom aspect requires width and height between 256 and 2048",
+        });
+      }
     }
 
     const jobId = anchorImageService.createJob(params);

@@ -1,0 +1,44 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  "styleTrigger": "mikasa_ackerman, mature woman, adult, ",
+  "character": "1girl, solo, black hair, black eyes, hair between eyes, long hair, large breast, ",
+  "outfit": "dongtan dress, gray dongtan dress, ",
+  "backgroundPositive": "modern Korean apartment living room, bright daytime interior, large windows with natural sunlight, light wood flooring, white and beige walls, minimalist contemporary furniture, clean and spacious new-town apartment style, neutral color palette, realistic Korean interior design, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, short hair, logo, white pants, ",
+  "prefixPrompt": "",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, arms at sides, frightened face, neutral face, ",
+  "anchorAspect": "portrait",
+  "anchorWidth": 1024,
+  "anchorHeight": 1536,
+  "comfyInstanceId": "comfy3",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "mikasa season 1.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "mature slider.safetensors",
+      "strengthModel": -4,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "dongtan.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "dongtan.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "김연주 (동탄미시녀 어플) spot 3 김연주의 집",
+  "updatedAt": "2026-08-24T07:08:52.146Z"
+}

@@ -1,40 +1,62 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { join } from "path";
 
-export type BatchFixedSeedCount = 2 | 3;
+export type BatchFixedSeedCount = 1 | 2 | 3;
 
-const DEFAULT_FIXED_SEED_COUNT: BatchFixedSeedCount = 2;
+export interface BatchVideoSettings {
+  fixedSeedCount: BatchFixedSeedCount;
+  preferMinimax: boolean;
+}
+
+const DEFAULT_SETTINGS: BatchVideoSettings = {
+  fixedSeedCount: 2,
+  preferMinimax: true,
+};
 
 function settingsPath(): string {
   return join(process.cwd(), "data", "batch-video-settings.json");
 }
 
-export async function readBatchVideoSettings(): Promise<{
-  fixedSeedCount: BatchFixedSeedCount;
-}> {
+function parseFixedSeedCount(value: unknown): BatchFixedSeedCount | null {
+  const n = typeof value === "string" ? parseInt(value, 10) : value;
+  return n === 1 || n === 2 || n === 3 ? n : null;
+}
+
+function parsePreferMinimax(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  return null;
+}
+
+export async function readBatchVideoSettings(): Promise<BatchVideoSettings> {
   try {
     const raw = await readFile(settingsPath(), "utf-8");
-    const parsed = JSON.parse(raw) as { fixedSeedCount?: unknown };
-    const n = parsed.fixedSeedCount;
-    if (n === 2 || n === 3) {
-      return { fixedSeedCount: n };
-    }
+    const parsed = JSON.parse(raw) as {
+      fixedSeedCount?: unknown;
+      preferMinimax?: unknown;
+    };
+    return {
+      fixedSeedCount:
+        parseFixedSeedCount(parsed.fixedSeedCount) ??
+        DEFAULT_SETTINGS.fixedSeedCount,
+      preferMinimax:
+        parsePreferMinimax(parsed.preferMinimax) ??
+        DEFAULT_SETTINGS.preferMinimax,
+    };
   } catch {
-    // missing or invalid
+    return { ...DEFAULT_SETTINGS };
   }
-  return { fixedSeedCount: DEFAULT_FIXED_SEED_COUNT };
 }
 
 export async function writeBatchVideoSettings(
-  fixedSeedCount: BatchFixedSeedCount,
-): Promise<{ fixedSeedCount: BatchFixedSeedCount }> {
+  patch: Partial<BatchVideoSettings>,
+): Promise<BatchVideoSettings> {
+  const current = await readBatchVideoSettings();
+  const next: BatchVideoSettings = {
+    fixedSeedCount: patch.fixedSeedCount ?? current.fixedSeedCount,
+    preferMinimax: patch.preferMinimax ?? current.preferMinimax,
+  };
   const dir = join(process.cwd(), "data");
   await mkdir(dir, { recursive: true });
-  const payload = { fixedSeedCount };
-  await writeFile(
-    settingsPath(),
-    JSON.stringify(payload, null, 2),
-    "utf-8",
-  );
-  return payload;
+  await writeFile(settingsPath(), JSON.stringify(next, null, 2), "utf-8");
+  return next;
 }

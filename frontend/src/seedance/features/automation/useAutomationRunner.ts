@@ -290,6 +290,8 @@ export function useAutomationRunner({
           targetEmotions,
           videosPerClip,
           idleTargetCount,
+          selectedIdlePrompts: pair.selectedIdlePrompts,
+          applyCommonToNaked: pair.applyCommonToNaked,
         });
 
         if (!ok || !data.success) {

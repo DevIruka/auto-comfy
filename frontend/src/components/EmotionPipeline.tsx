@@ -3,6 +3,16 @@ import { comfyClient, type ComfyInstanceInfo } from "../api/comfy-client";
 import PresetPicker from "./PresetPicker";
 import type { CharacterPreset } from "../api/presets-client";
 import { useWorkspace } from "../context/WorkspaceContext";
+import {
+  defaultLoraSlots,
+  padLoraSlots,
+  extraLoraLabel,
+  EXTRA_LORA_START,
+  type LoraSlotState,
+} from "../utils/lora-slots";
+import { resolvePresetInstanceId } from "../utils/resolve-preset-instance";
+import { useInstanceLoras } from "../context/LoraListContext";
+import { LoraNameSelect, LoraSearchInput } from "./LoraNameSelect";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3002";
 
@@ -18,12 +28,7 @@ interface PromptBlocks {
   fixedPrefix: string;
 }
 
-interface LoraSlot {
-  enabled: boolean;
-  loraName: string;
-  strengthModel: number;
-  strengthClip: number;
-}
+type LoraSlot = LoraSlotState;
 
 interface JobStatus {
   jobId: string;
@@ -57,12 +62,28 @@ const defaultBlocks: PromptBlocks = {
   fixedPrefix: DEFAULT_FIXED_PREFIX,
 };
 
-const DEFAULT_LORAS: LoraSlot[] = [
-  { enabled: true, loraName: "", strengthModel: 1, strengthClip: 1 },
-  { enabled: true, loraName: "", strengthModel: 1, strengthClip: 1 },
-  { enabled: false, loraName: "", strengthModel: 1, strengthClip: 1 },
-  { enabled: false, loraName: "", strengthModel: 1, strengthClip: 1 },
-];
+function ExtraLoraFold({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`ep-lora-extra ${open ? "open" : ""}`}>
+      <button
+        type="button"
+        className="ep-lora-extra-header"
+        onClick={() => setOpen(!open)}
+      >
+        <span className="ep-lora-extra-arrow">{open ? "▼" : "▶"}</span>
+        <span>{label}</span>
+      </button>
+      {open && <div className="ep-lora-extra-body">{children}</div>}
+    </div>
+  );
+}
 
 export default function EmotionPipeline() {
   const { character: wsCharacter, spot: wsSpot, paths, workspaceReady, resolveError } = useWorkspace();
@@ -71,9 +92,10 @@ export default function EmotionPipeline() {
   const [instances, setInstances] = useState<ComfyInstanceInfo[]>([]);
   const [selectedInstance, setSelectedInstance] = useState("");
   const [promptBlocks, setPromptBlocks] = useState<PromptBlocks>(defaultBlocks);
-  const [loraList, setLoraList] = useState<string[]>([]);
-  const [loraSlots, setLoraSlots] = useState<LoraSlot[]>(() => JSON.parse(JSON.stringify(DEFAULT_LORAS)));
-  const [loadingLoras, setLoadingLoras] = useState(false);
+  const [loraSlots, setLoraSlots] = useState<LoraSlot[]>(() => defaultLoraSlots());
+  const [loraFilter, setLoraFilter] = useState("");
+  const { loraList, loadingLoras, listReady, listError, refreshLoras } =
+    useInstanceLoras(selectedInstance);
   const [upscaleSeedCount, setUpscaleSeedCount] = useState(3);
   const [useOriginSubfolder, setUseOriginSubfolder] = useState(true);
   const [videoPrefixPrompt, setVideoPrefixPrompt] = useState("");
@@ -81,7 +103,13 @@ export default function EmotionPipeline() {
   const [queueState, setQueueState] = useState<QueueState | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scanResult, setScanResult] = useState<{
+    images: number;
+    pending: number;
+    skipped: number;
+  } | null>(null);
 
   useEffect(() => {
     comfyClient.getComfyInstances().then((list) => {
@@ -92,26 +120,66 @@ export default function EmotionPipeline() {
     });
   }, []);
 
-  const fetchLoras = useCallback(async () => {
-    if (!selectedInstance) return;
-    setLoadingLoras(true);
-    try {
-      const loras = await comfyClient.getLoraList(selectedInstance);
-      setLoraList(loras);
-    } finally {
-      setLoadingLoras(false);
-    }
-  }, [selectedInstance]);
-
-  useEffect(() => {
-    if (selectedInstance) fetchLoras();
-  }, [selectedInstance, fetchLoras]);
-
   const updateLoraSlot = (index: number, updates: Partial<LoraSlot>) => {
     setLoraSlots((prev) =>
       prev.map((slot, i) => (i === index ? { ...slot, ...updates } : slot))
     );
   };
+
+  const renderLoraSlot = (slot: LoraSlot, i: number) => (
+    <div
+      key={i}
+      className={`ep-lora-slot ${!slot.enabled ? "disabled" : ""}`}
+    >
+      <label className="ep-check">
+        <input
+          type="checkbox"
+          checked={slot.enabled}
+          onChange={(e) => updateLoraSlot(i, { enabled: e.target.checked })}
+        />
+        <span>LoRA {i + 1}</span>
+      </label>
+      {slot.enabled && (
+        <div className="ep-lora-body">
+          <LoraNameSelect
+            names={loraList}
+            value={slot.loraName}
+            onChange={(name) => updateLoraSlot(i, { loraName: name })}
+            filter={loraFilter}
+            className="ep-select"
+            placeholder="-- 선택 --"
+            loading={loadingLoras}
+            listReady={listReady}
+            listError={listError}
+          />
+          <div className="ep-strengths">
+            <div>
+              <label>Model</label>
+              <input
+                type="number"
+                step="0.1"
+                value={slot.strengthModel}
+                onChange={(e) =>
+                  updateLoraSlot(i, { strengthModel: parseFloat(e.target.value) || 0 })
+                }
+              />
+            </div>
+            <div>
+              <label>CLIP</label>
+              <input
+                type="number"
+                step="0.1"
+                value={slot.strengthClip}
+                onChange={(e) =>
+                  updateLoraSlot(i, { strengthClip: parseFloat(e.target.value) || 0 })
+                }
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   const fetchQueue = useCallback(async () => {
     try {
@@ -167,14 +235,9 @@ export default function EmotionPipeline() {
       ...(preset.fixedPrefix !== undefined && { fixedPrefix: preset.fixedPrefix }),
     }));
     if (preset.prefixPrompt !== undefined) setVideoPrefixPrompt(preset.prefixPrompt);
-    if (preset.comfyInstanceId !== undefined) setSelectedInstance(preset.comfyInstanceId);
+    setSelectedInstance(resolvePresetInstanceId(preset.comfyInstanceId, instances));
     if (preset.loraSlots?.length) {
-      setLoraSlots(preset.loraSlots.map((s) => ({
-        enabled: s.enabled,
-        loraName: s.loraName,
-        strengthModel: s.strengthModel,
-        strengthClip: s.strengthClip,
-      })));
+      setLoraSlots(padLoraSlots(preset.loraSlots));
     }
   };
 
@@ -196,6 +259,47 @@ export default function EmotionPipeline() {
       strengthClip: s.strengthClip,
     })),
   });
+
+  useEffect(() => {
+    setScanResult(null);
+  }, [folderPath, upscaleSeedCount, useOriginSubfolder]);
+
+  const handleScan = async () => {
+    if (!workspaceReady || !folderPath.trim()) {
+      setError(
+        resolveError ||
+          "상단에서 작업 공간(캐릭터·스팟)을 선택하세요. 작업 루트는 감정별 이미지 폴더입니다.",
+      );
+      return;
+    }
+    setScanning(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/emotion-pipeline/scan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          folderPath: folderPath.trim(),
+          upscaleSeedCount: Math.max(3, upscaleSeedCount),
+          useOriginSubfolder,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      setScanResult({
+        images: data.data?.images ?? 0,
+        pending: data.data?.pending ?? 0,
+        skipped: data.data?.skipped ?? 0,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "스캔 실패");
+      setScanResult(null);
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const handleStop = async (jobId: string) => {
     try {
@@ -332,70 +436,24 @@ export default function EmotionPipeline() {
         {/* LoRA */}
         <div className="ep-section">
           <h3 className="ep-section-title">LoRA</h3>
-          <button
-            type="button"
-            className="ep-btn-sm"
-            onClick={fetchLoras}
-            disabled={loadingLoras || !selectedInstance}
-          >
-            {loadingLoras ? "..." : "목록 새로고침"}
-          </button>
+          <div className="ep-lora-toolbar">
+            <LoraSearchInput value={loraFilter} onChange={setLoraFilter} />
+            <button
+              type="button"
+              className="ep-btn-sm"
+              onClick={refreshLoras}
+              disabled={loadingLoras || !selectedInstance}
+            >
+              {loadingLoras ? "..." : "목록 새로고침"}
+            </button>
+          </div>
           <div className="ep-lora-slots">
-            {loraSlots.map((slot, i) => (
-              <div
-                key={i}
-                className={`ep-lora-slot ${!slot.enabled ? "disabled" : ""}`}
-              >
-                <label className="ep-check">
-                  <input
-                    type="checkbox"
-                    checked={slot.enabled}
-                    onChange={(e) => updateLoraSlot(i, { enabled: e.target.checked })}
-                  />
-                  <span>LoRA {i + 1}</span>
-                </label>
-                {slot.enabled && (
-                  <div className="ep-lora-body">
-                    <select
-                      value={slot.loraName}
-                      onChange={(e) => updateLoraSlot(i, { loraName: e.target.value })}
-                      className="ep-select"
-                    >
-                      <option value="">-- 선택 --</option>
-                      {loraList.map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="ep-strengths">
-                      <div>
-                        <label>Model</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={slot.strengthModel}
-                          onChange={(e) =>
-                            updateLoraSlot(i, { strengthModel: parseFloat(e.target.value) || 0 })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label>CLIP</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={slot.strengthClip}
-                          onChange={(e) =>
-                            updateLoraSlot(i, { strengthClip: parseFloat(e.target.value) || 0 })
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+            {loraSlots.slice(0, EXTRA_LORA_START).map((slot, i) => renderLoraSlot(slot, i))}
+            <ExtraLoraFold label={extraLoraLabel(loraSlots)}>
+              {loraSlots
+                .slice(EXTRA_LORA_START)
+                .map((slot, j) => renderLoraSlot(slot, j + EXTRA_LORA_START))}
+            </ExtraLoraFold>
           </div>
         </div>
 
@@ -498,12 +556,27 @@ export default function EmotionPipeline() {
         <div className="button-row">
           <button
             type="button"
+            onClick={handleScan}
+            disabled={scanning || loading || !workspaceReady}
+          >
+            {scanning ? "스캔 중..." : "📂 스캔"}
+          </button>
+          <button
+            type="button"
             onClick={handleStart}
             disabled={loading || !workspaceReady}
           >
             {loading ? "큐에 추가 중..." : "파이프라인 큐에 추가"}
           </button>
         </div>
+        {scanResult && (
+          <div className="scan-results-mini">
+            <p>✅ {scanResult.images}개 원본</p>
+            <p>
+              생성 {scanResult.pending} · 스킵 {scanResult.skipped}
+            </p>
+          </div>
+        )}
 
         {/* Queue & Jobs */}
         {queueState && queueState.jobs.length > 0 && (

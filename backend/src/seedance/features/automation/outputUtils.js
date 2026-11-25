@@ -32,6 +32,7 @@ export function createAutomationOutputUtils({
       "clothed",
       "naked",
       "nude",
+      "uncensored",
       "pose",
       "img",
       "image",
@@ -84,19 +85,30 @@ export function createAutomationOutputUtils({
     if (reduced) return sanitizeSourceKey(reduced);
 
     // Basename is only pose / clothing / emotion / index tokens — already reflected in
-    // output prefix (e.g. Stand_Idle_Clothed). Omit suffix so we get Stand_Idle_Clothed_001.mp4.
+    // output prefix (e.g. Stand_Clothed_Idle). Omit suffix so we get Stand_Clothed_Idle_001.mp4.
     return "";
   }
 
-  function buildIdleExistingKey(pose, clothing, sourceKey) {
+  function buildIdleExistingKey(pose, clothing, sourceKey, uncensored) {
     const source = sanitizeSourceKey(sourceKey);
-    return source ? `${pose}_${clothing}_${source}` : `${pose}_${clothing}`;
+    const suffix = uncensored ? "_unc" : "";
+    return source
+      ? `${pose}_${clothing}_${source}${suffix}`
+      : `${pose}_${clothing}${suffix}`;
   }
 
-  function buildSpeakExistingKey(pose, clothing, emotionFrom, emotionTo, sourceKey) {
+  function buildSpeakExistingKey(
+    pose,
+    clothing,
+    emotionFrom,
+    emotionTo,
+    sourceKey,
+    uncensored,
+  ) {
     const source = sanitizeSourceKey(sourceKey);
+    const suffix = uncensored ? "_unc" : "";
     const base = `${pose}_${clothing}_${emotionFrom}_to_${emotionTo}`;
-    return source ? `${base}_${source}` : base;
+    return source ? `${base}_${source}${suffix}` : `${base}${suffix}`;
   }
 
   function normalizeClothingToken(token) {
@@ -106,9 +118,9 @@ export function createAutomationOutputUtils({
     return null;
   }
 
-  /** File token: internal Naked → "Nude" in filenames (user convention). */
+  /** File token: internal Naked → "Naked" in filenames (naked/nude both save as "Naked"). */
   function clothingFileSuffix(internalClothing) {
-    return internalClothing === "Naked" ? "Nude" : "Clothed";
+    return internalClothing === "Naked" ? "Naked" : "Clothed";
   }
 
   function formatSequenceDigits(n) {
@@ -164,8 +176,13 @@ export function createAutomationOutputUtils({
       return { idle, speakNatural };
     }
 
-    const idleRegexNew =
+    // Current format: Pose_Clothing_Idle[_source]_NNN (e.g. Stand_Clothed_Idle_001).
+    const idleRegexCurrent =
+      /^(Sit|Stand)_(Clothed|Naked|Nude)_Idle(?:_([a-z0-9-]+))?_(\d+)\.mp4$/i;
+    // Older format: Pose_Idle_Clothing[_source]_NNN (e.g. Stand_Idle_Clothed_001).
+    const idleRegexMid =
       /^(Sit|Stand)_Idle_(Clothed|Naked|Nude)(?:_([a-z0-9-]+))?_(\d+)\.mp4$/i;
+    // Oldest legacy: Pose_Clothing[_source]_Idle[_NNN].
     const idleRegexLegacy =
       /^(Sit|Stand)_(Clothed|Naked|Nude)(?:_([a-z0-9-]+))?_Idle(?:_(\d+))?\.mp4$/i;
     const speakRegexNew =
@@ -173,34 +190,32 @@ export function createAutomationOutputUtils({
     const speakRegexLegacy =
       /^(Sit|Stand)_SpeakNatural_(Angry|Sad|Aroused|Neutral|Happy)_to_(Angry|Sad|Aroused|Neutral|Happy)_(Clothed|Naked|Nude)(?:_([a-z0-9-]+))?(?:_(\d+))?\.mp4$/i;
 
-    function accumulateIdleDir(idleDir) {
+    function accumulateIdleDir(idleDir, uncensored) {
       if (!fs.existsSync(idleDir) || !fs.statSync(idleDir).isDirectory()) {
         return;
       }
       const files = listExistingMp4Files(idleDir);
       for (const fileName of files) {
-        let m = fileName.match(idleRegexNew);
-        let parsedPose;
-        let parsedClothing;
-        let parsedSource;
-        if (m) {
-          parsedPose = m[1];
-          parsedClothing = normalizeClothingToken(m[2]);
-          parsedSource = normalizeParsedFilenameSource(m[3] || "");
-        } else {
-          m = fileName.match(idleRegexLegacy);
-          if (!m) continue;
-          parsedPose = m[1];
-          parsedClothing = normalizeClothingToken(m[2]);
-          parsedSource = normalizeParsedFilenameSource(m[3] || "");
-        }
+        const m =
+          fileName.match(idleRegexCurrent) ||
+          fileName.match(idleRegexMid) ||
+          fileName.match(idleRegexLegacy);
+        if (!m) continue;
+        const parsedPose = m[1];
+        const parsedClothing = normalizeClothingToken(m[2]);
+        const parsedSource = normalizeParsedFilenameSource(m[3] || "");
         if (!parsedClothing) continue;
-        const key = buildIdleExistingKey(parsedPose, parsedClothing, parsedSource);
+        const key = buildIdleExistingKey(
+          parsedPose,
+          parsedClothing,
+          parsedSource,
+          uncensored,
+        );
         idle[key] = (idle[key] || 0) + 1;
       }
     }
 
-    function accumulateSpeakEmotionDir(emotionDir) {
+    function accumulateSpeakEmotionDir(emotionDir, uncensored) {
       if (!fs.existsSync(emotionDir) || !fs.statSync(emotionDir).isDirectory()) {
         return;
       }
@@ -234,23 +249,38 @@ export function createAutomationOutputUtils({
           parsedFrom,
           parsedTo,
           parsedSource,
+          uncensored,
         );
         speakNatural[key] = (speakNatural[key] || 0) + 1;
       }
     }
 
     for (const pose of AUTOMATION_POSES) {
-      accumulateIdleDir(path.join(outputPath, pose, "Idle"));
+      accumulateIdleDir(path.join(outputPath, pose, "Idle"), false);
+      accumulateIdleDir(path.join(outputPath, pose, "Idle", "Uncensored"), true);
     }
-    accumulateIdleDir(path.join(outputPath, "Idle"));
+    accumulateIdleDir(path.join(outputPath, "Idle"), false);
+    accumulateIdleDir(path.join(outputPath, "Idle", "Uncensored"), true);
 
     for (const emotionFrom of AUTOMATION_EMOTIONS) {
       for (const pose of AUTOMATION_POSES) {
         accumulateSpeakEmotionDir(
           path.join(outputPath, pose, "SpeakNatural", emotionFrom),
+          false,
+        );
+        accumulateSpeakEmotionDir(
+          path.join(outputPath, pose, "SpeakNatural", "Uncensored", emotionFrom),
+          true,
         );
       }
-      accumulateSpeakEmotionDir(path.join(outputPath, "SpeakNatural", emotionFrom));
+      accumulateSpeakEmotionDir(
+        path.join(outputPath, "SpeakNatural", emotionFrom),
+        false,
+      );
+      accumulateSpeakEmotionDir(
+        path.join(outputPath, "SpeakNatural", "Uncensored", emotionFrom),
+        true,
+      );
     }
 
     return { idle, speakNatural };
@@ -262,14 +292,17 @@ export function createAutomationOutputUtils({
     const { type, pose, clothing, emotionFrom, emotionTo } = jobMeta;
     const sourceKey = sanitizeSourceKey(jobMeta?.sourceKey || "");
     const sourceSuffix = sourceKey ? `_${sourceKey}` : "";
+    const uncensored = Boolean(jobMeta?.uncensored);
     const savedPaths = [];
 
     if (type === "idle") {
-      const folderPath = path.join(basePath, "Idle");
+      const folderPath = uncensored
+        ? path.join(basePath, "Idle", "Uncensored")
+        : path.join(basePath, "Idle");
       if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath, { recursive: true });
 
       const cloth = clothingFileSuffix(clothing);
-      const basePrefix = `${pose}_Idle_${cloth}${sourceSuffix}`;
+      const basePrefix = `${pose}_${cloth}_Idle${sourceSuffix}`;
       const numRegex = new RegExp(
         `^${escapeForRegex(basePrefix)}_(\\d+)\\.mp4$`,
         "i",
@@ -296,7 +329,9 @@ export function createAutomationOutputUtils({
 
     const startEmotion = emotionFrom || "Neutral";
     const endEmotion = emotionTo || "Neutral";
-    const folderPath = path.join(basePath, "SpeakNatural", startEmotion);
+    const folderPath = uncensored
+      ? path.join(basePath, "SpeakNatural", "Uncensored", startEmotion)
+      : path.join(basePath, "SpeakNatural", startEmotion);
     if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath, { recursive: true });
 
     const cloth = clothingFileSuffix(clothing);

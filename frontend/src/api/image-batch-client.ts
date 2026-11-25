@@ -68,6 +68,15 @@ class ImageBatchClient {
     }>;
     batchSize: number;
     outputPath: string;
+    aspect?: "portrait" | "shortform" | "custom";
+    width?: number;
+    height?: number;
+    promptPatch?: {
+      enabled: boolean;
+      addText?: string;
+      removeText?: string;
+      addPosition?: "prepend" | "append";
+    };
   }): Promise<{ jobId: string; job: ImageBatchJobStatus }> {
     const res = await fetch(`${this.baseUrl}/api/image-batch/start`, {
       method: "POST",

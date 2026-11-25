@@ -4,6 +4,7 @@ import {
   type CharacterPreset,
   type PresetSummary,
 } from "../api/presets-client";
+import { resolveWorkspacePresetName } from "../utils/resolve-workspace-preset";
 
 interface PresetPickerProps {
   /** Called when user loads a preset */
@@ -23,6 +24,7 @@ export default function PresetPicker({
   autoLoadOnPreferredChange = false,
 }: PresetPickerProps) {
   const [presets, setPresets] = useState<PresetSummary[]>([]);
+  const [presetsReady, setPresetsReady] = useState(false);
   const [selected, setSelected] = useState("");
   const [saveName, setSaveName] = useState("");
   const [showSave, setShowSave] = useState(false);
@@ -31,42 +33,53 @@ export default function PresetPicker({
   /** Preset name last successfully loaded via "불러오기" — used for overwrite save */
   const [lastLoadedPresetName, setLastLoadedPresetName] = useState<string | null>(null);
   const lastAutoLoadedPreferred = useRef<string | null>(null);
+  const onLoadRef = useRef(onLoad);
+  onLoadRef.current = onLoad;
 
   const refresh = useCallback(async () => {
     try {
       const list = await presetsClient.listPresets();
       setPresets(list);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    } finally {
+      setPresetsReady(true);
+    }
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
 
   useEffect(() => {
     const p = (preferredPresetName || "").trim();
-    if (!p) return;
-
-    // Keep UI selection in sync
-    setSelected(p);
-
+    if (!p) {
+      lastAutoLoadedPreferred.current = null;
+      return;
+    }
     if (!autoLoadOnPreferredChange) return;
+    if (!presetsReady) return;
     if (lastAutoLoadedPreferred.current === p) return;
     lastAutoLoadedPreferred.current = p;
+
+    const names = presets.map((x) => x.name);
+    const resolved = resolveWorkspacePresetName(p, names);
+    if (!resolved) return;
 
     let cancelled = false;
     (async () => {
       try {
-        const preset = await presetsClient.getPreset(p);
+        const preset = await presetsClient.getPreset(resolved);
         if (cancelled) return;
-        onLoad(preset);
-        setLastLoadedPresetName(p);
+        onLoadRef.current(preset);
+        setSelected(resolved);
+        setLastLoadedPresetName(resolved);
       } catch {
-        // Ignore missing preset or network errors for auto-load.
+        /* Ignore missing preset or network errors for auto-load. */
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [preferredPresetName, autoLoadOnPreferredChange, onLoad]);
+  }, [preferredPresetName, autoLoadOnPreferredChange, presets, presetsReady]);
 
   const handleLoad = async () => {
     if (!selected) return;
@@ -85,22 +98,47 @@ export default function PresetPicker({
     }
   };
 
+  const upsertPreset = async (name: string) => {
+    const settings = getCurrentSettings();
+    const existing = presets.find((p) => p.name === name);
+    if (existing) {
+      await presetsClient.updatePreset(name, { ...settings, name });
+    } else {
+      await presetsClient.savePreset({ ...settings, name });
+    }
+  };
+
   const handleSave = async () => {
     const name = saveName.trim();
     if (!name) return;
     setBusy(true);
     setMessage(null);
     try {
-      const settings = getCurrentSettings();
-      const existing = presets.find((p) => p.name === name);
-      if (existing) {
-        await presetsClient.updatePreset(name, { ...settings, name });
-      } else {
-        await presetsClient.savePreset({ ...settings, name });
-      }
+      await upsertPreset(name);
       setMessage(`"${name}" 저장 완료`);
+      setSelected(name);
+      setLastLoadedPresetName(name);
       setSaveName("");
       setShowSave(false);
+      await refresh();
+      setTimeout(() => setMessage(null), 2000);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "저장 실패");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSaveAsWorkspace = async () => {
+    const name = (preferredPresetName || "").trim();
+    if (!name) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      await upsertPreset(name);
+      setMessage(`"${name}" 저장 완료`);
+      setSelected(name);
+      setLastLoadedPresetName(name);
       await refresh();
       setTimeout(() => setMessage(null), 2000);
     } catch (e) {
@@ -178,6 +216,18 @@ export default function PresetPicker({
           title={lastLoadedPresetName ? `"${lastLoadedPresetName}"에 덮어씁니다` : "먼저 프리셋을 불러오세요"}
         >
           불러온 프리셋에 저장
+        </button>
+        <button
+          onClick={handleSaveAsWorkspace}
+          disabled={busy || !(preferredPresetName || "").trim()}
+          className="preset-btn preset-btn-workspace"
+          title={
+            (preferredPresetName || "").trim()
+              ? `"${(preferredPresetName || "").trim()}"(으)로 저장합니다`
+              : "상단에서 작업 공간(캐릭터·스팟)을 선택하세요"
+          }
+        >
+          현재 작업 공간의 이름으로 저장
         </button>
         <button onClick={() => setShowSave(!showSave)} className="preset-btn preset-btn-save-toggle" disabled={busy}>
           {showSave ? "취소" : "새 이름으로 저장"}

@@ -13,7 +13,7 @@
   "loraSlots": [
     {
       "enabled": true,
-      "loraName": "Doumyouji Koutetu.safetensors",
+      "loraName": "Koutetu-TSMG-V1.safetensors",
       "strengthModel": 0.8,
       "strengthClip": 1
     },

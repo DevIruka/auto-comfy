@@ -1,5 +1,6 @@
+import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import type { FolderPair } from "../../types/app";
+import type { FolderPair, IdlePromptOption } from "../../types/app";
 import { pathDisplayTail } from "../../utils/workspacePaths";
 
 const EMOTION_OPTIONS = ["Angry", "Sad", "Aroused", "Neutral", "Happy"] as const;
@@ -13,6 +14,7 @@ interface AutomationFolderPairsEditorProps {
   rowEndpointByIndex: Record<number, number>;
   rowPausedByIndex: Record<number, boolean>;
   rowControlLoadingByIndex: Record<number, boolean>;
+  idlePromptOptions: IdlePromptOption[];
 }
 
 export function AutomationFolderPairsEditor({
@@ -24,7 +26,15 @@ export function AutomationFolderPairsEditor({
   rowEndpointByIndex,
   rowPausedByIndex,
   rowControlLoadingByIndex,
+  idlePromptOptions,
 }: AutomationFolderPairsEditorProps) {
+  const [expandedIdleRows, setExpandedIdleRows] = useState<Record<number, boolean>>({});
+  const allIdlePromptIds = idlePromptOptions.map((option) => option.id);
+
+  const getRowSelectedIdlePrompts = (pair: FolderPair) => {
+    if (pair.selectedIdlePrompts === undefined) return allIdlePromptIds;
+    return pair.selectedIdlePrompts;
+  };
   const parseEndpoint = (value: FolderPair["endpointIndex"]): number | null => {
     const numeric = Number(value);
     if (Number.isInteger(numeric) && numeric >= 1 && numeric <= 3) {
@@ -223,6 +233,118 @@ export function AutomationFolderPairsEditor({
             </div>
           </div>
 
+          {idlePromptOptions.length > 0 ? (() => {
+            const selectedIdle = getRowSelectedIdlePrompts(pair);
+            const perPrompt = Math.min(5, Math.max(1, Number(pair.idleTargetCount) || 1));
+            const expanded = Boolean(expandedIdleRows[idx]);
+            const applyCommonToNaked = Boolean(pair.applyCommonToNaked);
+            // Target total is fixed by the full prompt list; selection is only the fill pool.
+            const allCount = idlePromptOptions.length;
+            const allBaseCount = idlePromptOptions.filter(
+              (o) => o.kind === "base",
+            ).length;
+            const clothedTargetPrompts = allCount;
+            const nakedTargetPrompts = applyCommonToNaked ? allCount : allBaseCount;
+            const poolBaseSelected = selectedIdle.filter(
+              (id) => !id.startsWith("common:"),
+            ).length;
+            const setSelectedIdle = (next: string[]) => {
+              // Preserve config order; store explicit array (even when "all") so it round-trips.
+              const ordered = allIdlePromptIds.filter((id) => next.includes(id));
+              updateRow(idx, { selectedIdlePrompts: ordered });
+            };
+            return (
+              <div className="folder-row-idle-prompts">
+                <button
+                  type="button"
+                  className="folder-row-idle-toggle"
+                  onClick={() =>
+                    setExpandedIdleRows((prev) => ({ ...prev, [idx]: !prev[idx] }))
+                  }
+                  disabled={automationRunning}
+                >
+                  <span>{expanded ? "▾" : "▸"} Idle 프롬프트</span>
+                  <span className="folder-row-idle-summary">
+                    풀 {selectedIdle.length} / {idlePromptOptions.length} · 목표 Clothed{" "}
+                    {perPrompt * clothedTargetPrompts}개
+                  </span>
+                </button>
+                {expanded ? (
+                  <div className="folder-row-idle-body">
+                    <div className="folder-row-idle-actions">
+                      <button
+                        type="button"
+                        className="link-btn"
+                        onClick={() => setSelectedIdle([...allIdlePromptIds])}
+                        disabled={automationRunning}
+                      >
+                        전체 선택
+                      </button>
+                      <button
+                        type="button"
+                        className="link-btn"
+                        onClick={() => setSelectedIdle([])}
+                        disabled={automationRunning}
+                      >
+                        전체 해제
+                      </button>
+                    </div>
+                    <div className="folder-row-idle-grid">
+                      {idlePromptOptions.map((option) => {
+                        const checked = selectedIdle.includes(option.id);
+                        return (
+                          <button
+                            key={`${idx}-${option.id}`}
+                            type="button"
+                            className={`emotion-chip ${checked ? "active" : ""}`}
+                            disabled={automationRunning}
+                            onClick={() => {
+                              const next = checked
+                                ? selectedIdle.filter((v) => v !== option.id)
+                                : [...selectedIdle, option.id];
+                              setSelectedIdle(next);
+                            }}
+                            title={option.kind === "common" ? "common 프롬프트" : "기본 idle"}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <label
+                      className="folder-row-checkbox folder-row-checkbox-compact"
+                      style={{ marginTop: "8px" }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={applyCommonToNaked}
+                        onChange={(e) =>
+                          updateRow(idx, { applyCommonToNaked: e.target.checked })
+                        }
+                        disabled={automationRunning}
+                      />
+                      Naked에도 common 프롬프트 적용 (기본 해제)
+                    </label>
+                    <p className="helper-text" style={{ marginTop: "6px" }}>
+                      목표 개수는 전체 프롬프트 수로 고정되고, 이번 스캔/실행에서 새로 만드는
+                      개수는 <strong>min(목표 − 기존, 선택 풀 × Idle Per Prompt)</strong>입니다.
+                      즉, 선택한 풀이 적으면 그만큼만 추가 생성됩니다.
+                    </p>
+                    <p className="helper-text" style={{ marginTop: "2px" }}>
+                      Clothed: 목표 {perPrompt * clothedTargetPrompts}개(={perPrompt}×
+                      {clothedTargetPrompts}) · 이번 추가 한도 {perPrompt * selectedIdle.length}개(=
+                      {perPrompt}×풀 {selectedIdle.length}). Naked: 목표{" "}
+                      {perPrompt * nakedTargetPrompts}개 · 이번 추가 한도{" "}
+                      {perPrompt * (applyCommonToNaked ? selectedIdle.length : poolBaseSelected)}개
+                      {applyCommonToNaked ? "" : " (common 제외)"}. (선택이 비어 있거나 Neutral
+                      미선택 시 idle은 생성되지 않습니다.)
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })() : null}
+
           <div className="folder-pair-footer">
             <div className="folder-pair-footer-left">
               <label className="folder-row-checkbox folder-row-checkbox-compact">
@@ -302,6 +424,7 @@ export function AutomationFolderPairsEditor({
               targetEmotions: [...EMOTION_OPTIONS],
               targetClothing: "all",
               targetTransition: "all",
+              selectedIdlePrompts: [...allIdlePromptIds],
             },
           ]);
         }}

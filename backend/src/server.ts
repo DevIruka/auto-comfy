@@ -5,8 +5,11 @@ import { createServer } from "http";
 import { comfyRouter } from "./routes/comfy.routes.js";
 import { uploadRouter } from "./routes/upload.routes.js";
 import { batchRouter } from "./routes/batch.routes.js";
+import { batchV2Router } from "./routes/batch-v2.routes.js";
+import { happyhorseRouter } from "./routes/happyhorse.routes.js";
 import emotionBatchRouter from "./routes/emotion-batch.routes.js";
 import comfyInstancesRouter from "./routes/comfy-instances.routes.js";
+import runpodStopRouter from "./routes/runpod-stop.routes.js";
 import imageGenRouter from "./routes/image-gen.routes.js";
 import imageBatchRouter from "./routes/image-batch.routes.js";
 import bannerBatchRouter from "./routes/banner-batch.routes.js";
@@ -44,8 +47,11 @@ app.get("/health", (req, res) => {
 app.use("/api/comfy", comfyRouter);
 app.use("/api/upload", uploadRouter);
 app.use("/api/batch", batchRouter);
+app.use("/api/batch-v2", batchV2Router);
+app.use("/api/happyhorse", happyhorseRouter);
 app.use("/api/emotion-batch", emotionBatchRouter);
 app.use("/api/comfy-instances", comfyInstancesRouter);
+app.use("/api/runpod-stop", runpodStopRouter);
 app.use("/api/image-gen", imageGenRouter);
 app.use("/api/image-batch", imageBatchRouter);
 app.use("/api/banner-batch", bannerBatchRouter);
@@ -66,7 +72,22 @@ setupWebSocket(server);
 // Start server
 server.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
-  console.log(`📡 ComfyUI API: ${process.env.COMFYUI_API_URL}`);
+  console.log(`📡 ComfyUI instances: dashboard only`);
   console.log(`🌐 Frontend URL: ${FRONTEND_URL}`);
   console.log(`🔌 WebSocket available at ws://localhost:${PORT}/ws`);
+});
+
+// Clean up any open SSH tunnels on shutdown.
+async function shutdownTunnels() {
+  const { sshTunnelService } = await import("./services/ssh-tunnel.service.js");
+  sshTunnelService.stopAll();
+}
+process.on("SIGINT", () => {
+  void shutdownTunnels().finally(() => process.exit(0));
+});
+process.on("SIGTERM", () => {
+  void shutdownTunnels().finally(() => process.exit(0));
+});
+process.on("exit", () => {
+  // Best-effort synchronous cleanup (dynamic import already resolved if used).
 });

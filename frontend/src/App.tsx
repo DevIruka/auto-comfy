@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import BatchProcessor from "./components/BatchProcessor";
+import BatchProcessorV2 from "./components/BatchProcessorV2";
+import HappyHorseProcessor from "./components/HappyHorseProcessor";
 import ImageBatchProcessor from "./components/ImageBatchProcessor";
 import BannerProcessor from "./components/BannerProcessor";
 import AnchorImageProcessor from "./components/AnchorImageProcessor";
 import EmotionPipeline from "./components/EmotionPipeline";
+import RunPodStopPanel from "./components/RunPodStopPanel";
 import WorkspaceSelector from "./components/WorkspaceSelector";
 import WorkspaceFolderPanel from "./components/WorkspaceFolderPanel";
 import { SeedanceHost } from "./seedance/SeedanceHost";
@@ -32,6 +35,7 @@ const SERVICE_LABELS: Record<string, string> = {
   batch: "영상",
   "emotion-batch": "감정 영상",
   "emotion-pipeline": "마스킹+인페인팅",
+  "runpod-stop": "RunPod 종료",
 };
 
 function PodManager() {
@@ -40,13 +44,24 @@ function PodManager() {
   const [open, setOpen] = useState(false);
   const [newUrl, setNewUrl] = useState("");
   const [newName, setNewName] = useState("");
+  const [newRemotePorts, setNewRemotePorts] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loraInstanceId, setLoraInstanceId] = useState("");
+  const [loraUrl, setLoraUrl] = useState("");
+  const [loraBusy, setLoraBusy] = useState(false);
+  const [loraNotice, setLoraNotice] = useState<string | null>(null);
+  const [loraError, setLoraError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       const list = await comfyClient.getComfyInstances();
       setInstances(list);
+      setLoraInstanceId((prev) => {
+        const ssh = list.filter((i) => i.connectionType === "ssh-tunnel");
+        if (ssh.some((i) => i.id === prev)) return prev;
+        return ssh[0]?.id ?? "";
+      });
     } catch { /* ignore */ }
   }, []);
 
@@ -74,9 +89,14 @@ function PodManager() {
     setBusy(true);
     setError(null);
     try {
-      await comfyClient.addInstance(newUrl.trim(), newName.trim() || undefined);
+      await comfyClient.addInstance(
+        newUrl.trim(),
+        newName.trim() || undefined,
+        newRemotePorts.trim() || undefined,
+      );
       setNewUrl("");
       setNewName("");
+      setNewRemotePorts("");
       await refresh();
       await fetchDashboard();
     } catch (e) {
@@ -85,6 +105,8 @@ function PodManager() {
       setBusy(false);
     }
   };
+
+  const isSshInput = /(^|\s)ssh\s|@/.test(newUrl);
 
   const handleRemove = async (id: string) => {
     if (!confirm(`인스턴스 ${id}를 삭제하시겠습니까?`)) return;
@@ -110,6 +132,22 @@ function PodManager() {
     } catch { /* ignore */ }
   };
 
+  const handleDownloadLora = async () => {
+    if (!loraInstanceId || !loraUrl.trim()) return;
+    setLoraBusy(true);
+    setLoraError(null);
+    setLoraNotice(null);
+    try {
+      const result = await comfyClient.downloadLora(loraInstanceId, loraUrl.trim());
+      setLoraNotice(`${result.filename} 저장됨 (${result.path})`);
+      setLoraUrl("");
+    } catch (e) {
+      setLoraError(e instanceof Error ? e.message : "로라 다운로드 실패");
+    } finally {
+      setLoraBusy(false);
+    }
+  };
+
   const handleStopJob = async (serviceType: string, jobId: string) => {
     try {
       await fetch(`${API_BASE}/api/comfy-instances/dashboard/stop`, {
@@ -121,6 +159,7 @@ function PodManager() {
     } catch { /* ignore */ }
   };
 
+  const sshInstances = instances.filter((i) => i.connectionType === "ssh-tunnel");
   const totalRunning = dashboard.filter((d) => d.running).length;
   const totalPending = dashboard.reduce((sum, d) => sum + d.pending.length, 0);
 
@@ -147,8 +186,15 @@ function PodManager() {
                 <div className="dashboard-instance-header">
                   <span className="dashboard-instance-name">
                     <strong>{inst.name}</strong> ({inst.id})
+                    {inst.connectionType === "ssh-tunnel" && (
+                      <span className="dashboard-conn-badge">SSH</span>
+                    )}
                   </span>
-                  <span className="dashboard-instance-url">{inst.url}</span>
+                  <span className="dashboard-instance-url">
+                    {inst.connectionType === "ssh-tunnel" && inst.sshTarget
+                      ? `${inst.sshTarget} → ${inst.url}${inst.remotePort ? ` (원격 ${inst.remotePort})` : ""}`
+                      : inst.url}
+                  </span>
                   <button
                     className="pod-remove-btn"
                     onClick={() => handleRemove(inst.id)}
@@ -205,12 +251,22 @@ function PodManager() {
           <div className="pod-add-form">
             <input
               type="text"
-              placeholder="ComfyUI URL (https://...)"
+              placeholder="ComfyUI URL (https://...) 또는 RunPod SSH 명령"
               value={newUrl}
               onChange={(e) => setNewUrl(e.target.value)}
               disabled={busy}
               className="pod-input"
             />
+            {isSshInput && (
+              <input
+                type="text"
+                placeholder="원격 포트 (기본 8188, 예: 8188,8189)"
+                value={newRemotePorts}
+                onChange={(e) => setNewRemotePorts(e.target.value)}
+                disabled={busy}
+                className="pod-input pod-input-name"
+              />
+            )}
             <input
               type="text"
               placeholder="이름 (선택)"
@@ -223,7 +279,55 @@ function PodManager() {
               {busy ? "..." : "추가"}
             </button>
           </div>
+          {isSshInput && (
+            <div className="pod-hint">
+              SSH 명령을 붙여넣으면 백엔드가 로컬 터널을 열어 연결합니다. (백엔드 PC에 ssh 클라이언트와 키 필요)
+            </div>
+          )}
           {error && <div className="pod-error">{error}</div>}
+
+          <div className="pod-lora-section">
+            <div className="pod-lora-title">CivitAI 로라 다운로드</div>
+            <div className="pod-add-form">
+              <select
+                className="pod-input pod-input-name"
+                value={loraInstanceId}
+                onChange={(e) => setLoraInstanceId(e.target.value)}
+                disabled={loraBusy || sshInstances.length === 0}
+              >
+                {sshInstances.length === 0 && (
+                  <option value="">SSH 인스턴스 없음</option>
+                )}
+                {sshInstances.map((inst) => (
+                  <option key={inst.id} value={inst.id}>
+                    {inst.name} ({inst.id})
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                placeholder="CivitAI 로라 링크 (civitai.com / civitai.red)"
+                value={loraUrl}
+                onChange={(e) => setLoraUrl(e.target.value)}
+                disabled={loraBusy || sshInstances.length === 0}
+                className="pod-input"
+              />
+              <button
+                onClick={handleDownloadLora}
+                disabled={loraBusy || !loraInstanceId || !loraUrl.trim()}
+                className="pod-add-btn"
+              >
+                {loraBusy ? "받는 중..." : "다운로드"}
+              </button>
+            </div>
+            {sshInstances.length === 0 && (
+              <div className="pod-hint">
+                SSH로 등록한 인스턴스만 로라를 /workspace/ComfyUI/models/loras 에 받을 수 있습니다.
+              </div>
+            )}
+            {loraNotice && <div className="pod-hint">{loraNotice}</div>}
+            {loraError && <div className="pod-error">{loraError}</div>}
+          </div>
         </div>
       )}
     </div>
@@ -233,12 +337,15 @@ function PodManager() {
 function App() {
   const [activeTab, setActiveTab] = useState<
     | "batch"
+    | "batchV2"
+    | "happyhorse"
     | "imageBatch"
     | "banner"
     | "anchor"
     | "emotionPipeline"
     | "seedanceSingle"
     | "seedanceAutomation"
+    | "runpodStop"
   >("imageBatch");
 
   const seedanceOpen =
@@ -273,6 +380,18 @@ function App() {
             성인용 영상 자동화
           </button>
           <button
+            className={`nav-tab ${activeTab === "batchV2" ? "active" : ""}`}
+            onClick={() => setActiveTab("batchV2")}
+          >
+            성인용 영상 자동화 V2
+          </button>
+          <button
+            className={`nav-tab ${activeTab === "happyhorse" ? "active" : ""}`}
+            onClick={() => setActiveTab("happyhorse")}
+          >
+            happyhorse 단일 영상 제작
+          </button>
+          <button
             className={`nav-tab ${activeTab === "seedanceSingle" ? "active" : ""}`}
             onClick={() => setActiveTab("seedanceSingle")}
           >
@@ -290,6 +409,12 @@ function App() {
           >
             마스킹 + 인페인팅
           </button>
+          <button
+            className={`nav-tab ${activeTab === "runpodStop" ? "active" : ""}`}
+            onClick={() => setActiveTab("runpodStop")}
+          >
+            RunPod 종료 예약
+          </button>
         </div>
         <div className="app-nav-tools">
           <WorkspaceSelector />
@@ -303,7 +428,10 @@ function App() {
         {activeTab === "banner" && <BannerProcessor />}
         {activeTab === "anchor" && <AnchorImageProcessor />}
         {activeTab === "batch" && <BatchProcessor />}
+        {activeTab === "batchV2" && <BatchProcessorV2 />}
+        {activeTab === "happyhorse" && <HappyHorseProcessor />}
         {activeTab === "emotionPipeline" && <EmotionPipeline />}
+        {activeTab === "runpodStop" && <RunPodStopPanel />}
         {seedanceOpen && (
           <SeedanceHost
             view={activeTab === "seedanceSingle" ? "single" : "automation"}

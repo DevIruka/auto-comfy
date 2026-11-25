@@ -3,7 +3,6 @@ import { batchService } from "../services/batch.service.js";
 import {
   readBatchVideoSettings,
   writeBatchVideoSettings,
-  type BatchFixedSeedCount,
 } from "../services/batch-video-settings.service.js";
 import { asyncHandler } from "../middleware/errorHandler.js";
 
@@ -16,19 +15,26 @@ export const batchRouter = Router();
 batchRouter.post(
   "/scan",
   asyncHandler(async (req: Request, res: Response) => {
-    const { folderPath } = req.body;
+    const { folderPath, outputFolderPath } = req.body;
 
     if (!folderPath) {
       res.status(400).json({ error: "folderPath is required" });
       return;
     }
 
-    const images = await batchService.scanFolder(folderPath);
+    const images = await batchService.scanFolder(
+      folderPath,
+      typeof outputFolderPath === "string" ? outputFolderPath : undefined,
+    );
+    const pending = images.filter((image) => !image.skipped).length;
+    const skipped = images.length - pending;
 
     res.json({
       success: true,
       images,
       count: images.length,
+      pending,
+      skipped,
     });
   }),
 );
@@ -43,8 +49,7 @@ batchRouter.post(
     const {
       folderPath,
       outputFolderPath,
-      prefixPrompt,
-      includeRandomSeeds = false,
+      prefixPrompt = "",
       autoStopPod = false,
       comfyInstanceId,
     } = req.body;
@@ -54,17 +59,11 @@ batchRouter.post(
       return;
     }
 
-    if (!prefixPrompt) {
-      res.status(400).json({ error: "prefixPrompt is required" });
-      return;
-    }
-
     // Create job
     const job = await batchService.createBatchJob(
       folderPath,
       outputFolderPath || "",
-      prefixPrompt,
-      includeRandomSeeds,
+      typeof prefixPrompt === "string" ? prefixPrompt : "",
       autoStopPod,
       comfyInstanceId,
     );
@@ -92,21 +91,51 @@ batchRouter.get(
 );
 
 /**
- * PUT /api/batch/settings — body: { fixedSeedCount: 2 | 3 }
+ * PUT /api/batch/settings — body: { fixedSeedCount?: 1 | 2 | 3, preferMinimax?: boolean }
  */
 batchRouter.put(
   "/settings",
   asyncHandler(async (req: Request, res: Response) => {
-    const raw = req.body?.fixedSeedCount;
-    const n = typeof raw === "string" ? parseInt(raw, 10) : raw;
-    if (n !== 2 && n !== 3) {
+    const hasSeed = req.body?.fixedSeedCount !== undefined;
+    const hasPrefer = req.body?.preferMinimax !== undefined;
+    if (!hasSeed && !hasPrefer) {
       res.status(400).json({
         success: false,
-        error: "fixedSeedCount must be 2 or 3",
+        error: "fixedSeedCount or preferMinimax is required",
       });
       return;
     }
-    const data = await writeBatchVideoSettings(n as BatchFixedSeedCount);
+
+    const patch: {
+      fixedSeedCount?: 1 | 2 | 3;
+      preferMinimax?: boolean;
+    } = {};
+
+    if (hasSeed) {
+      const raw = req.body.fixedSeedCount;
+      const n = typeof raw === "string" ? parseInt(raw, 10) : raw;
+      if (n !== 1 && n !== 2 && n !== 3) {
+        res.status(400).json({
+          success: false,
+          error: "fixedSeedCount must be 1, 2, or 3",
+        });
+        return;
+      }
+      patch.fixedSeedCount = n;
+    }
+
+    if (hasPrefer) {
+      if (typeof req.body.preferMinimax !== "boolean") {
+        res.status(400).json({
+          success: false,
+          error: "preferMinimax must be a boolean",
+        });
+        return;
+      }
+      patch.preferMinimax = req.body.preferMinimax;
+    }
+
+    const data = await writeBatchVideoSettings(patch);
     res.json({ success: true, data });
   }),
 );

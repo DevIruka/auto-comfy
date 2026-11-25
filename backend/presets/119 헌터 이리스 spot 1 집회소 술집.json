@@ -1,0 +1,42 @@
+{
+  "fixedPrefix": "",
+  "styleTrigger": "kirin xr armor, ",
+  "character": "1girl, solo, blue eyes, ponytail, bare shoulders, navel, large breasts, single horn hairband, ",
+  "outfit": "cleavage, midriff, earrings,  pendant, black collar, white strapless halter, lace-trimmed gloves, white loincloth, black thighhighs, skindentation, ",
+  "backgroundPositive": "fireplace, fantasy, beer mug,  bar, indoors, masterpiece,best quality,amazing quality,very aesthetic,absurdres,newest,scenery,extreme detail,soft lighting,volumetric lighting,intricate details,finely detailed,",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, ",
+  "prefixPrompt": "A beautiful anime girl with white hair, blue eyes, horn,",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, sitting, closed mouth, arms at sides, ",
+  "anchorAspect": "portrait",
+  "comfyInstanceId": "comfy2",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "kirin.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "119 헌터 이리스 spot 1 집회소 술집",
+  "updatedAt": "2026-05-28T02:49:51.424Z"
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   comfyClient,
   type ComfyInstanceInfo,
@@ -13,23 +13,21 @@ import {
 import PresetPicker from "./PresetPicker";
 import type { CharacterPreset } from "../api/presets-client";
 import { useWorkspace } from "../context/WorkspaceContext";
+import {
+  defaultLoraSlots,
+  padLoraSlots,
+  extraLoraLabel,
+  EXTRA_LORA_START,
+  type LoraSlotState,
+} from "../utils/lora-slots";
+import { resolvePresetInstanceId } from "../utils/resolve-preset-instance";
+import { useInstanceLoras } from "../context/LoraListContext";
+import { LoraNameSelect, LoraSearchInput } from "./LoraNameSelect";
 import "./BannerProcessor.css";
 
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3002/ws";
 
-interface LoraSlot {
-  enabled: boolean;
-  loraName: string;
-  strengthModel: number;
-  strengthClip: number;
-}
-
-const DEFAULT_LORAS: LoraSlot[] = [
-  { enabled: true, loraName: "", strengthModel: 1, strengthClip: 1 },
-  { enabled: true, loraName: "", strengthModel: 1, strengthClip: 1 },
-  { enabled: false, loraName: "", strengthModel: 1, strengthClip: 1 },
-  { enabled: false, loraName: "", strengthModel: 1, strengthClip: 1 },
-];
+type LoraSlot = LoraSlotState;
 
 const DEFAULT_FIXED_PREFIX =
   "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,";
@@ -62,9 +60,10 @@ function CollapsibleBlock({
 export default function BannerProcessor() {
   const [instances, setInstances] = useState<ComfyInstanceInfo[]>([]);
   const [selectedInstance, setSelectedInstance] = useState("");
-  const [loraList, setLoraList] = useState<string[]>([]);
-  const [loraSlots, setLoraSlots] = useState<LoraSlot[]>(DEFAULT_LORAS);
-  const [loadingLoras, setLoadingLoras] = useState(false);
+  const [loraSlots, setLoraSlots] = useState<LoraSlot[]>(() => defaultLoraSlots());
+  const [loraFilter, setLoraFilter] = useState("");
+  const { loraList, loadingLoras, listReady, listError, refreshLoras } =
+    useInstanceLoras(selectedInstance);
   const [bannerConfig, setBannerConfig] = useState<BannerConfig | null>(null);
 
   const [fixedPrefix, setFixedPrefix] = useState(DEFAULT_FIXED_PREFIX);
@@ -107,23 +106,6 @@ export default function BannerProcessor() {
       .catch(console.error);
   }, []);
 
-  const fetchLoras = useCallback(async () => {
-    if (!selectedInstance) return;
-    setLoadingLoras(true);
-    try {
-      const loras = await comfyClient.getLoraList(selectedInstance);
-      setLoraList(loras);
-    } catch (err) {
-      console.error("Failed to fetch LoRAs:", err);
-    } finally {
-      setLoadingLoras(false);
-    }
-  }, [selectedInstance]);
-
-  useEffect(() => {
-    if (selectedInstance) fetchLoras();
-  }, [selectedInstance, fetchLoras]);
-
   useEffect(() => {
     const ws = new WebSocket(WS_URL);
     ws.onmessage = (event) => {
@@ -162,6 +144,66 @@ export default function BannerProcessor() {
     );
   };
 
+  const renderLoraSlot = (slot: LoraSlot, i: number) => (
+    <div
+      key={i}
+      className={`ib-lora-slot ${!slot.enabled ? "disabled" : ""}`}
+    >
+      <label className="ib-check">
+        <input
+          type="checkbox"
+          checked={slot.enabled}
+          onChange={(e) =>
+            updateLoraSlot(i, { enabled: e.target.checked })
+          }
+        />
+        <span>LoRA {i + 1}</span>
+      </label>
+      {slot.enabled && (
+        <div className="ib-lora-body">
+          <LoraNameSelect
+            names={loraList}
+            value={slot.loraName}
+            onChange={(name) => updateLoraSlot(i, { loraName: name })}
+            filter={loraFilter}
+            className="ib-select ib-select-sm"
+            loading={loadingLoras}
+            listReady={listReady}
+            listError={listError}
+          />
+          <div className="ib-strengths">
+            <div>
+              <label>Model</label>
+              <input
+                type="number"
+                step="0.1"
+                value={slot.strengthModel}
+                onChange={(e) =>
+                  updateLoraSlot(i, {
+                    strengthModel: parseFloat(e.target.value) || 0,
+                  })
+                }
+              />
+            </div>
+            <div>
+              <label>CLIP</label>
+              <input
+                type="number"
+                step="0.1"
+                value={slot.strengthClip}
+                onChange={(e) =>
+                  updateLoraSlot(i, {
+                    strengthClip: parseFloat(e.target.value) || 0,
+                  })
+                }
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   const comboCount =
     bannerConfig && bannerConfig.pose && bannerConfig.gesture
       ? Object.keys(bannerConfig.pose).length +
@@ -180,14 +222,9 @@ export default function BannerProcessor() {
     if (preset.fixedNegative !== undefined) setFixedNegative(preset.fixedNegative);
     if (preset.backgroundNegative !== undefined) setBackgroundNegative(preset.backgroundNegative);
     if (preset.prefixPrompt !== undefined) setVideoPrefixPrompt(preset.prefixPrompt);
-    if (preset.comfyInstanceId !== undefined) setSelectedInstance(preset.comfyInstanceId);
+    setSelectedInstance(resolvePresetInstanceId(preset.comfyInstanceId, instances));
     if (preset.loraSlots?.length) {
-      setLoraSlots(preset.loraSlots.map((s) => ({
-        enabled: s.enabled,
-        loraName: s.loraName,
-        strengthModel: s.strengthModel,
-        strengthClip: s.strengthClip,
-      })));
+      setLoraSlots(padLoraSlots(preset.loraSlots));
     }
   };
 
@@ -219,7 +256,7 @@ export default function BannerProcessor() {
     setFixedSuffix(DEFAULT_FIXED_SUFFIX);
     setFixedNegative(DEFAULT_FIXED_NEGATIVE);
     setBackgroundNegative("");
-    setLoraSlots(JSON.parse(JSON.stringify(DEFAULT_LORAS)));
+    setLoraSlots(defaultLoraSlots());
   };
 
   const handleStart = async () => {
@@ -333,77 +370,21 @@ export default function BannerProcessor() {
           <div className="ib-section ib-lora-section">
             <div className="ib-section-row">
               <h3>LoRA Configuration</h3>
+              <LoraSearchInput value={loraFilter} onChange={setLoraFilter} />
               <button
                 className="ib-btn-sm"
-                onClick={fetchLoras}
+                onClick={refreshLoras}
                 disabled={loadingLoras}
               >
                 {loadingLoras ? "..." : "Refresh"}
               </button>
             </div>
-            {loraSlots.map((slot, i) => (
-              <div
-                key={i}
-                className={`ib-lora-slot ${!slot.enabled ? "disabled" : ""}`}
-              >
-                <label className="ib-check">
-                  <input
-                    type="checkbox"
-                    checked={slot.enabled}
-                    onChange={(e) =>
-                      updateLoraSlot(i, { enabled: e.target.checked })
-                    }
-                  />
-                  <span>LoRA {i + 1}</span>
-                </label>
-                {slot.enabled && (
-                  <div className="ib-lora-body">
-                    <select
-                      value={slot.loraName}
-                      onChange={(e) =>
-                        updateLoraSlot(i, { loraName: e.target.value })
-                      }
-                      className="ib-select ib-select-sm"
-                    >
-                      <option value="">-- Select --</option>
-                      {loraList.map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="ib-strengths">
-                      <div>
-                        <label>Model</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={slot.strengthModel}
-                          onChange={(e) =>
-                            updateLoraSlot(i, {
-                              strengthModel: parseFloat(e.target.value) || 0,
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label>CLIP</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={slot.strengthClip}
-                          onChange={(e) =>
-                            updateLoraSlot(i, {
-                              strengthClip: parseFloat(e.target.value) || 0,
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+            {loraSlots.slice(0, EXTRA_LORA_START).map((slot, i) => renderLoraSlot(slot, i))}
+            <CollapsibleBlock label={extraLoraLabel(loraSlots)}>
+              {loraSlots
+                .slice(EXTRA_LORA_START)
+                .map((slot, j) => renderLoraSlot(slot, j + EXTRA_LORA_START))}
+            </CollapsibleBlock>
           </div>
 
           <div className="ib-divider" />

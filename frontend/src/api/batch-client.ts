@@ -9,8 +9,6 @@ export interface BatchJob {
   folderPath: string;
   outputFolderPath: string;
   prefixPrompt: string;
-  /** Fixed seeds per image when job was created (2 or 3). */
-  fixedSeedCount?: 2 | 3;
   status: "pending" | "running" | "paused" | "completed" | "failed" | "stopped";
   currentImageIndex: number;
   totalImages: number;
@@ -22,15 +20,44 @@ export interface BatchJob {
   logs: string[];
 }
 
-export interface BatchVideoSettings {
-  fixedSeedCount: 2 | 3;
-}
+export type VideoEngine = "minimax" | "wan";
+export type SkipReason = "existing" | "no_prompt" | "minimax_owned";
 
 export interface ImageTask {
   poseName: string;
   imagePath: string;
   imageName: string;
   outputFolder: string;
+  sequenceNumber?: number;
+  targetFilename?: string;
+  skipped?: boolean;
+  skipReason?: SkipReason;
+  engine?: VideoEngine;
+}
+
+export function countImageTasks(images: ImageTask[]) {
+  const pending = images.filter((img) => !img.skipped);
+  return {
+    pending: pending.length,
+    skipped: images.length - pending.length,
+    minimax: pending.filter((img) => img.engine === "minimax").length,
+    wan: pending.filter((img) => img.engine === "wan").length,
+    noPrompt: images.filter((img) => img.skipReason === "no_prompt").length,
+    minimaxOwned: images.filter((img) => img.skipReason === "minimax_owned")
+      .length,
+  };
+}
+
+export interface BatchScanResult {
+  images: ImageTask[];
+  count: number;
+  pending: number;
+  skipped: number;
+}
+
+export interface BatchVideoSettings {
+  fixedSeedCount: 1 | 2 | 3;
+  preferMinimax: boolean;
 }
 
 class BatchClient {
@@ -49,12 +76,22 @@ class BatchClient {
   /**
    * Scan folder for images
    */
-  async scanFolder(folderPath: string): Promise<ImageTask[]> {
+  async scanFolder(
+    folderPath: string,
+    outputFolderPath?: string,
+  ): Promise<BatchScanResult> {
     try {
       const response = await this.httpClient.post("/batch/scan", {
         folderPath,
+        outputFolderPath,
       });
-      return response.data.images;
+      const images = response.data.images ?? [];
+      return {
+        images,
+        count: response.data.count ?? images.length,
+        pending: response.data.pending ?? 0,
+        skipped: response.data.skipped ?? 0,
+      };
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
       throw new Error(err.response?.data?.error || "Failed to scan folder");
@@ -67,8 +104,7 @@ class BatchClient {
   async startBatch(
     folderPath: string,
     outputFolderPath: string,
-    prefixPrompt: string,
-    includeRandomSeeds: boolean = false,
+    prefixPrompt: string = "",
     autoStopPod: boolean = false,
     comfyInstanceId?: string,
   ): Promise<{ jobId: string; job: BatchJob }> {
@@ -77,7 +113,6 @@ class BatchClient {
         folderPath,
         outputFolderPath,
         prefixPrompt,
-        includeRandomSeeds,
         autoStopPod,
         comfyInstanceId,
       });
@@ -165,11 +200,9 @@ class BatchClient {
   }
 
   async updateBatchVideoSettings(
-    fixedSeedCount: 2 | 3,
+    settings: Partial<BatchVideoSettings>,
   ): Promise<BatchVideoSettings> {
-    const response = await this.httpClient.put("/batch/settings", {
-      fixedSeedCount,
-    });
+    const response = await this.httpClient.put("/batch/settings", settings);
     if (!response.data?.success || !response.data?.data) {
       throw new Error("Failed to save batch settings");
     }

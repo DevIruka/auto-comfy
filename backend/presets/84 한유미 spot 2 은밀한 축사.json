@@ -14,7 +14,7 @@
   "loraSlots": [
     {
       "enabled": true,
-      "loraName": "uzaki.safetensors",
+      "loraName": "Uzaki_Yanagi_illustrious-XL-000010.safetensors",
       "strengthModel": 1,
       "strengthClip": 1
     },

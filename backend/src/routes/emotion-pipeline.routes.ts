@@ -4,6 +4,7 @@ import {
   createEmotionPipelineJob,
   getEmotionPipelineJob,
   getEmotionPipelineQueueState,
+  scanEmotionPipeline,
   stopEmotionPipelineJob,
   type EmotionPipelineParams,
   type SdxlWaiPromptBlocks,
@@ -12,6 +13,31 @@ import {
 import { comfyManager } from "../services/comfy-manager.service.js";
 
 const emotionPipelineRouter = Router();
+
+/**
+ * POST /api/emotion-pipeline/scan
+ * Preview missing Emotion/Neutral slots without starting a job.
+ */
+emotionPipelineRouter.post(
+  "/scan",
+  asyncHandler(async (req: Request, res: Response) => {
+    const body = req.body as {
+      folderPath?: string;
+      upscaleSeedCount?: number;
+      useOriginSubfolder?: boolean;
+    };
+    if (!body.folderPath || typeof body.folderPath !== "string") {
+      return res.status(400).json({ success: false, error: "folderPath is required" });
+    }
+    const data = await scanEmotionPipeline({
+      folderPath: body.folderPath,
+      upscaleSeedCount:
+        typeof body.upscaleSeedCount === "number" ? Math.max(3, body.upscaleSeedCount) : 3,
+      useOriginSubfolder: body.useOriginSubfolder !== false,
+    });
+    res.json({ success: true, data });
+  }),
+);
 
 /**
  * POST /api/emotion-pipeline/start

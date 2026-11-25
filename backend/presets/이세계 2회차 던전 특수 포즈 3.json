@@ -1,0 +1,62 @@
+{
+  "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
+  "styleTrigger": "",
+  "character": "1girl, red eyes, white hair, very long hair, medium breast, round cheek, embarrassed, shy, rabbit ears, white rabbit ears, ",
+  "outfit": "nude, completely nude, fully nude, naked, completely naked, fully naked, no clothes, bare body, nude body, naked body, bare skin, exposed body, all nude, totally nude, no clothing, undressed, unclothed,",
+  "backgroundPositive": "underground dungeon, stone walls, dim torch lighting, damp floor, chains on walls, dark medieval prison basement, atmospheric lighting, detailed stone texture. ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "\nsmall breast, blurry, low quality, watermark,  crowds, night, dark, indoor, ",
+  "prefixPrompt": "A beautiful anime woman with black hair, purple eyes,  ",
+  "compositionPose": "fellatio, oral, blowjob, penis in mouth, cock in mouth, dick in mouth, penis deep in mouth, penis inside mouth, cock inside mouth, mouth full of penis, sucking, sucking penis, sucking cock, oral sex, licking, lips wrapped around penis, lips sealed around penis, lips around penis, lips stretched around penis, mouth on penis, oral penetration, penis between lips, shaft in mouth, cheeks bulging, mouth full, kneeling, on knees, looking up, eye contact, upward gaze, looking at viewer, \n\nahegao, half-lidded eyes, bedroom eyes, open mouth, saliva, drooling, messy, wet, flushed face, deep blush, red face, aroused expression, pleasured look, ecstatic expression, one hand on penis, hand on shaft, stroking, both hands on penis, hands gripping penis, detailed penis, visible penis, erect penis, penis visible, shaft visible, male out of frame, disembodied penis, pov, from above, from above pov, ",
+  "anchorAspect": "portrait",
+  "anchorWidth": 1024,
+  "anchorHeight": 1536,
+  "comfyInstanceId": "comfy2",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "zeroshiki.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "RoundCheek_Illustrious.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "slimeILv3d32.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "이세계 2회차 던전 특수 포즈 3",
+  "updatedAt": "2026-10-01T04:35:05.097Z"
+}

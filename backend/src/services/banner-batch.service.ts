@@ -57,10 +57,10 @@ export interface BannerBatchJob {
 
 type BroadcastCallback = (jobId: string, data: unknown) => void;
 
-const LYING_DOWN_WIDTH = 1536;
-const LYING_DOWN_HEIGHT = 1024;
-const DEFAULT_WIDTH = 1024;
-const DEFAULT_HEIGHT = 1536;
+const LYING_DOWN_WIDTH = 1200;
+const LYING_DOWN_HEIGHT = 900;
+const DEFAULT_WIDTH = 960;
+const DEFAULT_HEIGHT = 1200;
 
 class BannerBatchService {
   private config: BannerConfig = { pose: {}, gesture: {} };

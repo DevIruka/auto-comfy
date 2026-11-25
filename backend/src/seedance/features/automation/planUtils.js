@@ -1,17 +1,47 @@
 import { buildSpeakTargets } from "../../automation-filters.js";
 
-export function resolveIdleTargetCount({
+export function resolveIdlePerPrompt({
   idleTargetCount,
   batchCount,
-  IDLE_PROMPT_VARIANT_COUNT,
   IDLE_PER_PROMPT_MAX,
 }) {
   const requested = Number(idleTargetCount);
-  const perPrompt = Math.min(
+  return Math.min(
     IDLE_PER_PROMPT_MAX,
     Math.max(1, Number.isFinite(requested) ? requested : batchCount),
   );
-  return perPrompt * IDLE_PROMPT_VARIANT_COUNT;
+}
+
+export function resolveIdleTargetCount({
+  idleTargetCount,
+  batchCount,
+  selectedIdlePromptCount,
+  IDLE_PER_PROMPT_MAX,
+}) {
+  const promptCount = Math.max(0, Number(selectedIdlePromptCount) || 0);
+  if (promptCount <= 0) return 0;
+  const perPrompt = resolveIdlePerPrompt({ idleTargetCount, batchCount, IDLE_PER_PROMPT_MAX });
+  return perPrompt * promptCount;
+}
+
+/**
+ * Resolve the effective idle prompt pool for a given clothing.
+ * Naked excludes the named `common:` prompts unless explicitly enabled,
+ * since common prompts are clothed-only by design.
+ */
+export function effectiveIdlePrompts(selectedIdlePrompts, clothing, applyCommonToNaked) {
+  const list = Array.isArray(selectedIdlePrompts) ? selectedIdlePrompts : [];
+  if (clothing === "Naked" && !applyCommonToNaked) {
+    return list.filter((id) => !String(id).startsWith("common:"));
+  }
+  return list;
+}
+
+/** Naked + filename contains "uncensored" -> counted against the Uncensored folder set. */
+function isUncensoredSource(sourcePath, clothing) {
+  if (clothing !== "Naked") return false;
+  const base = String(sourcePath || "").split(/[\\/]/).pop() || "";
+  return /uncensored/i.test(base);
 }
 
 export function getInputLeafFolderName(inputPath) {
@@ -44,7 +74,10 @@ export function buildAutomationPlanFromPoses({
   selectedEmotions,
   targetTransition,
   existingOutput,
-  idleTarget,
+  idlePerPrompt,
+  allIdlePrompts,
+  selectedIdlePrompts,
+  applyCommonToNaked,
   batchCount,
   AUTOMATION_POSES,
   AUTOMATION_EMOTIONS,
@@ -69,72 +102,100 @@ export function buildAutomationPlanFromPoses({
     for (const clothing of selectedClothing) {
       const emotionMap = poseData?.[clothing] || {};
 
-      const neutralPath = emotionMap?.Neutral?.imagePath;
-      if (selectedEmotions.includes("Neutral") && neutralPath) {
-        const sourceKey = getSourceKeyFromImagePath(neutralPath);
-        const idleKey = buildIdleExistingKey(pose, clothing, sourceKey);
-        let existingIdleCount = existingOutput.idle[idleKey] || 0;
-        if (existingIdleCount === 0) {
-          const idleKeyBare = buildIdleExistingKey(pose, clothing, "");
-          if (idleKeyBare !== idleKey) {
-            existingIdleCount = existingOutput.idle[idleKeyBare] || 0;
+      // Target total is fixed by the full prompt list (independent of selection);
+      // selection only controls which prompts fill the missing videos.
+      const targetPromptCount = effectiveIdlePrompts(
+        allIdlePrompts,
+        clothing,
+        applyCommonToNaked,
+      ).length;
+      const poolPromptCount = effectiveIdlePrompts(
+        selectedIdlePrompts,
+        clothing,
+        applyCommonToNaked,
+      ).length;
+      const idleTarget = poolPromptCount > 0 ? idlePerPrompt * targetPromptCount : 0;
+
+      // Naked has two independent source variants: plain (imagePath) and
+      // uncensored (uncensoredImagePath). Each is counted/planned separately.
+      const imageKeys =
+        clothing === "Naked" ? ["imagePath", "uncensoredImagePath"] : ["imagePath"];
+
+      for (const imageKey of imageKeys) {
+        const neutralPath = emotionMap?.Neutral?.[imageKey];
+        if (selectedEmotions.includes("Neutral") && neutralPath && idleTarget > 0) {
+          const sourceKey = getSourceKeyFromImagePath(neutralPath);
+          const uncensored = isUncensoredSource(neutralPath, clothing);
+          const idleKey = buildIdleExistingKey(pose, clothing, sourceKey, uncensored);
+          let existingIdleCount = existingOutput.idle[idleKey] || 0;
+          if (existingIdleCount === 0) {
+            const idleKeyBare = buildIdleExistingKey(pose, clothing, "", uncensored);
+            if (idleKeyBare !== idleKey) {
+              existingIdleCount = existingOutput.idle[idleKeyBare] || 0;
+            }
+          }
+          // Fill is capped per scan by the selected pool (perPrompt × pool size),
+          // so deselecting prompts limits how many new videos are made this round.
+          const fillCap = idlePerPrompt * poolPromptCount;
+          const remaining = Math.min(idleTarget - existingIdleCount, fillCap);
+          if (remaining > 0) {
+            const idleJobs = Math.ceil(remaining / batchCount);
+            idleJobCount += idleJobs;
+            idleVideoTotal += remaining;
+            byClothing[clothing].jobs += idleJobs;
+            byClothing[clothing].clips += remaining;
+            byClothing[clothing].idleJobs += idleJobs;
+            byClothing[clothing].idleClips += remaining;
           }
         }
-        const remaining = idleTarget - existingIdleCount;
-        if (remaining > 0) {
-          const idleJobs = Math.ceil(remaining / batchCount);
-          idleJobCount += idleJobs;
-          idleVideoTotal += remaining;
-          byClothing[clothing].jobs += idleJobs;
-          byClothing[clothing].clips += remaining;
-          byClothing[clothing].idleJobs += idleJobs;
-          byClothing[clothing].idleClips += remaining;
-        }
-      }
 
-      for (const emotionFrom of selectedEmotions) {
-        const fromPath = emotionMap?.[emotionFrom]?.imagePath;
-        if (!fromPath) continue;
+        for (const emotionFrom of selectedEmotions) {
+          const fromPath = emotionMap?.[emotionFrom]?.[imageKey];
+          if (!fromPath) continue;
 
-        const targets = buildSpeakTargets(emotionFrom, targetTransition);
-        for (const emotionTo of targets) {
-          const toPath =
-            emotionTo === emotionFrom
-              ? fromPath
-              : emotionMap?.[emotionTo]?.imagePath;
-          if (!toPath) continue;
+          const targets = buildSpeakTargets(emotionFrom, targetTransition);
+          for (const emotionTo of targets) {
+            const toPath =
+              emotionTo === emotionFrom
+                ? fromPath
+                : emotionMap?.[emotionTo]?.[imageKey];
+            if (!toPath) continue;
 
-          const sourceKey = getSourceKeyFromImagePath(fromPath);
-          const speakKey = buildSpeakExistingKey(
-            pose,
-            clothing,
-            emotionFrom,
-            emotionTo,
-            sourceKey,
-          );
-          let existingSpeakCount = existingOutput.speakNatural[speakKey] || 0;
-          if (existingSpeakCount === 0) {
-            const speakKeyBare = buildSpeakExistingKey(
+            const sourceKey = getSourceKeyFromImagePath(fromPath);
+            const uncensored = isUncensoredSource(fromPath, clothing);
+            const speakKey = buildSpeakExistingKey(
               pose,
               clothing,
               emotionFrom,
               emotionTo,
-              "",
+              sourceKey,
+              uncensored,
             );
-            if (speakKeyBare !== speakKey) {
-              existingSpeakCount = existingOutput.speakNatural[speakKeyBare] || 0;
+            let existingSpeakCount = existingOutput.speakNatural[speakKey] || 0;
+            if (existingSpeakCount === 0) {
+              const speakKeyBare = buildSpeakExistingKey(
+                pose,
+                clothing,
+                emotionFrom,
+                emotionTo,
+                "",
+                uncensored,
+              );
+              if (speakKeyBare !== speakKey) {
+                existingSpeakCount = existingOutput.speakNatural[speakKeyBare] || 0;
+              }
             }
-          }
-          if (existingSpeakCount >= batchCount) continue;
+            if (existingSpeakCount >= batchCount) continue;
 
-          speakByEmotion[emotionFrom] += 1;
-          speakTotal += 1;
-          const speakClips = batchCount - existingSpeakCount;
-          speakVideoTotal += speakClips;
-          byClothing[clothing].jobs += 1;
-          byClothing[clothing].clips += speakClips;
-          byClothing[clothing].speakJobs += 1;
-          byClothing[clothing].speakClips += speakClips;
+            speakByEmotion[emotionFrom] += 1;
+            speakTotal += 1;
+            const speakClips = batchCount - existingSpeakCount;
+            speakVideoTotal += speakClips;
+            byClothing[clothing].jobs += 1;
+            byClothing[clothing].clips += speakClips;
+            byClothing[clothing].speakJobs += 1;
+            byClothing[clothing].speakClips += speakClips;
+          }
         }
       }
     }

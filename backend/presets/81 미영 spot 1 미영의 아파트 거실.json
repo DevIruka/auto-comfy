@@ -10,7 +10,7 @@
   "prefixPrompt": "A beautiful anime woman with black hair, brown eyes,",
   "compositionPose": "looking at viewer, facing forward, cowboy shot, sitting, sitting on sofa, ",
   "anchorAspect": "portrait",
-  "comfyInstanceId": "comfy10",
+  "comfyInstanceId": "comfy3",
   "loraSlots": [
     {
       "enabled": true,
@@ -38,5 +38,5 @@
     }
   ],
   "name": "81 미영 spot 1 미영의 아파트 거실",
-  "updatedAt": "2026-04-08T11:47:34.788Z"
+  "updatedAt": "2026-07-27T02:26:20.118Z"
 }

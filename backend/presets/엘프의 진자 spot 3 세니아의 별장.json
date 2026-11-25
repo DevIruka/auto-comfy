@@ -1,0 +1,44 @@
+{
+  "fixedPrefix": "",
+  "styleTrigger": "22D, ",
+  "character": "1girl, elf, red hair, medium hair, sidecut, asymmetrical hair, wavy hair, blue eyes, medium breast, ",
+  "outfit": "micro bikini, white micro bikini, garter belt, thighhighs, ",
+  "backgroundPositive": "cabin interior, wooden walls, small bed, simple table, warm lighting, cozy atmosphere,",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, blonde hair, small breast, blurry, low quality, watermark, ",
+  "prefixPrompt": "A beautiful anime woman with red long hair, blue eyes, ",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, sitting, sitting on bed, ",
+  "anchorAspect": "portrait",
+  "anchorWidth": 1024,
+  "anchorHeight": 1536,
+  "comfyInstanceId": "comfy3",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "style001.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "elf rogue.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "flat style1.safetensors",
+      "strengthModel": 0.7,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "garter.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "엘프의 진자 spot 3 세니아의 별장",
+  "updatedAt": "2026-08-16T06:54:14.346Z"
+}

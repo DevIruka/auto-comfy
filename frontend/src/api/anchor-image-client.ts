@@ -57,7 +57,9 @@ class AnchorImageClient {
     batchSize: number;
     outputPath: string;
     compositionPose: string;
-    aspect: "portrait" | "landscape";
+    aspect: "portrait" | "landscape" | "shortform" | "custom";
+    width?: number;
+    height?: number;
   }): Promise<{ jobId: string; job: AnchorImageJobStatus }> {
     const res = await fetch(`${this.baseUrl}/api/anchor-image/start`, {
       method: "POST",

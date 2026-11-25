@@ -1,0 +1,1059 @@
+{
+  "2568": {
+    "inputs": {
+      "frame_rate": ["2693", 8],
+      "codec": "H.264",
+      "container": "MP4",
+      "bit_depth": "Auto",
+      "quality": 21,
+      "log_level": "Standard",
+      "pingpong": false,
+      "save_metadata": true,
+      "filename_prefix": "video/%date:yyyy-MM-dd%/MiniMax_H3",
+      "save_output": true,
+      "pass_frames": false,
+      "crop_to_audio": true,
+      "audio_codec": "AAC",
+      "audio_bitrate": "192k",
+      "save_first_frame": false,
+      "save_last_frame": false,
+      "images": ["1512:2677", 0],
+      "director_guide": ["2693", 0],
+      "audio": ["1512:2675", 0],
+      "long_cache": ["1512:2910", 0],
+      "video_vae": ["1512:2584", 0],
+      "audio_vae": ["1512:2585", 0]
+    },
+    "class_type": "DirectorPlusVideoOutput",
+    "_meta": {
+      "title": "Director · 영상 저장 / 긴 영상 자동 합치기"
+    }
+  },
+  "2678": {
+    "inputs": {
+      "__lm_autocomplete_meta_text": {
+        "version": 1,
+        "textWidgetName": "text"
+      },
+      "text": "<lora:H3_Motion_Booster_anime:1.00> <lora:NSFW_ANIME_H3_V16:1.00>",
+      "loras": {
+        "__value__": [
+          {
+            "name": "H3_Motion_Booster_anime",
+            "strength": 1,
+            "active": true,
+            "expanded": false,
+            "clipStrength": 1,
+            "selected": false,
+            "locked": false
+          },
+          {
+            "name": "NSFW_ANIME_H3_V16",
+            "strength": 1,
+            "active": true,
+            "expanded": false,
+            "clipStrength": 1,
+            "selected": false,
+            "locked": false
+          }
+        ]
+      },
+      "model": ["2693", 5],
+      "clip": ["1512:2587", 0]
+    },
+    "class_type": "Lora Loader (LoraManager)",
+    "_meta": {
+      "title": "Lora Loader (LoraManager)"
+    }
+  },
+  "2693": {
+    "inputs": {
+      "mode": "I2VA",
+      "prompt": "",
+      "width": 736,
+      "height": 1280,
+      "duration": 5,
+      "ref_image_size": "match",
+      "timeline_data": "{\"version\":1,\"items\":[],\"prompt_blocks\":[],\"builder_state\":{\"version\":2,\"mode\":\"I2VA\",\"imd\":\"\",\"soundscape\":\"\",\"music\":\"\",\"duration\":5,\"ref\":{\"subject_defs\":[],\"summary_types\":[\"reference generation\"],\"summary_text\":\"\",\"retention\":[],\"style_line\":\"\",\"detail\":\"\",\"soundscape\":\"\",\"music\":\"\",\"subject_definitions\":\"\",\"summary\":\"\",\"retention_analysis\":\"\",\"detailed_description\":\"\"},\"simple_prompt\":\"\",\"prompt_mode\":\"simple\"},\"resolution\":{\"aspect\":\"9:16\",\"resolution\":\"720p\",\"input_scaling\":\"Auto\",\"custom_aspect_w\":16,\"custom_aspect_h\":9,\"custom_mp\":0.7,\"custom_width\":736,\"custom_height\":992,\"custom_mode\":\"mp\"},\"field_heights\":{\"simple_prompt\":312},\"refmods\":[],\"resolved_prompt\":\"\",\"long_video\":{\"version\":1,\"project_id\":\"bf8231f3286e4a34a193f52bc9d657af\",\"enabled\":false,\"start_mode\":\"new\",\"source_mode_enabled\":false,\"run_mode\":\"clip_by_clip\",\"context_length\":\"22\",\"clips\":[{\"id\":\"43579ae3-bee2-48d3-993e-9d0a7d78531d\",\"name\":\"\",\"prompt\":\"integrated_multimodal_description: [Shot 1] 2D anime, cel-shaded, cinematic, a medium-wide shot frames a young battle-mage swordswoman alone on a stone platform before a great vermilion torii gate at a cliff edge above a rolling sea of dawn clouds, warm gold light breaking across the platform, small white seabirds far below. She has raven-black hair in two long twin-tails tied with white ribbons that hang to her waist. She wears a sleeveless crimson and white shrine-battle outfit with a bare back and shoulders, a short pleated white skirt with a long open crimson half-skirt trailing behind her knees, white ribbon tassels at both hips, fingerless long black gloves, and lace-topped white thigh-high stockings with red cord ties; she carries a curved crimson-lacquered blade trailing two long white streamers from its hilt. She snaps her free hand up and four translucent spectral swords of pale golden light materialize around her, orbiting her body in a fast level ring at waist height, each trailing thin light. As the ring spins she launches sideways into a one-handed cartwheel directly through the orbit, her legs sweeping overhead in turn, twin-tails, ribbons, half-skirt and streamers whipping through the gaps between the circling spectral blades, and lands back on both feet without breaking the ring's spin. She then drops low and whirls her real blade in a rising diagonal cut; the four spectral swords break from their orbit, streak outward away from her in four directions above her head with their tips pointing downward, and shatter against the stone floor of the platform with their tips striking first into brief showers of golden petals of light that fade where they fall. She finishes upright with the blade raised before the torii gate, streamers and twin-tails swinging once and settling. The camera holds a Static Shot at chest height for the whole clip; the platform and gate stay fixed while only the swordswoman, her blade, the spectral swords, her hair, ribbons, skirts and streamers, and the golden petals move. Every frame is crisp and sharp as if shot at a very high shutter speed, her limbs, each ribbon, streamer and skirt pleat held in fine clean detail through every instant of the motion, deep depth of field front to back.\\n\\noverall_soundscape: A bright ringing shimmer as the four spectral swords materialize and orbit with a low circling hum, the sharp rustle and snap of ribbons, pleats and streamers through the cartwheel, both soles landing on stone with a clean double tap, a hard whoosh with the rising cut, four quick glassy bursts as the spectral blades shatter into petals, and a soft high wind over the sea of clouds with distant seabird cries.\\n\\nnon_diegetic_music: N/A\",\"use_external_prompt\":false,\"duration\":5,\"seed\":263848828602,\"seed_mode\":\"fixed\",\"validated\":false,\"loras\":[],\"derope\":true,\"audio_regen\":false,\"face_refine\":false}],\"groups\":[],\"group_notes\":{}}}",
+      "builder_state": "{\"version\":2,\"mode\":\"I2VA\",\"imd\":\"\",\"soundscape\":\"\",\"music\":\"\",\"duration\":5,\"ref\":{\"subject_defs\":[],\"summary_types\":[\"reference generation\"],\"summary_text\":\"\",\"retention\":[],\"style_line\":\"\",\"detail\":\"\",\"soundscape\":\"\",\"music\":\"\",\"subject_definitions\":\"\",\"summary\":\"\",\"retention_analysis\":\"\",\"detailed_description\":\"\"},\"simple_prompt\":\"\",\"prompt_mode\":\"simple\"}",
+      "frame_rate": 24,
+      "fl2va_model": ["1512:2958", 0],
+      "ref2va_model": ["1512:2960", 0]
+    },
+    "class_type": "DirectorPlusTimeline",
+    "_meta": {
+      "title": "MiniMax H3 Director Plus"
+    }
+  },
+  "2841": {
+    "inputs": {
+      "comfy_models": true,
+      "isolated_workers": true,
+      "orphan_workers": false,
+      "ollama": true,
+      "ollama_url": "http://127.0.0.1:11434",
+      "node_cache": true,
+      "torch_cache": true
+    },
+    "class_type": "MMH3_KillSwitch",
+    "_meta": {
+      "title": "☠️ Unload Everything (Kill Switch)"
+    }
+  },
+  "2948": {
+    "inputs": {
+      "seed_value": 17792010733351346000,
+      "seed_control_state": "{\"mode\":\"random\",\"last_seed\":\"17792010733351347036\",\"recent\":[\"17792010733351347036\",\"16048647641020888923\",\"17270036299426209044\",\"2762049746788710982\",\"9620407108225313619\",\"6215670189607043429\",\"1903966282510857744\",\"15389442826334049420\",\"8514635540281641155\",\"8821788088837801462\"]}"
+    },
+    "class_type": "DaSiWa_SeedControl",
+    "_meta": {
+      "title": "Seed Control"
+    }
+  },
+  "1512:2591": {
+    "inputs": {
+      "noise": ["1512:2600", 0],
+      "guider": ["1512:2592", 0],
+      "sampler": ["1512:2598", 0],
+      "sigmas": ["1512:2767", 0],
+      "latent_image": ["1512:2756", 0]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "FL2VA · 1차 생성"
+    }
+  },
+  "1512:2586": {
+    "inputs": {
+      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "FL2VA 모델 불러오기"
+    }
+  },
+  "1512:2669": {
+    "inputs": {
+      "samples": ["1512:2953", 0],
+      "vae": ["1512:2585", 0]
+    },
+    "class_type": "VAEDecodeAudio",
+    "_meta": {
+      "title": "Ref2VA · 오디오 디코딩"
+    }
+  },
+  "1512:2587": {
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "텍스트 인코더 · CLIP"
+    }
+  },
+  "1512:2668": {
+    "inputs": {
+      "noise": ["1512:2600", 0],
+      "guider": ["1512:2667", 0],
+      "sampler": ["1512:2598", 0],
+      "sigmas": ["1512:2776", 0],
+      "latent_image": ["1512:2756", 0]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "Ref2VA · 1차 생성"
+    }
+  },
+  "1512:2598": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "샘플러 방식 선택"
+    }
+  },
+  "1512:2671": {
+    "inputs": {
+      "samples": ["1512:2953", 0],
+      "vae": ["1512:2584", 0]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Ref2VA · 영상 디코딩"
+    }
+  },
+  "1512:2590": {
+    "inputs": {
+      "scheduler": "simple",
+      "steps": 20,
+      "denoise": 1,
+      "model": ["2678", 0]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "FL2VA · 노이즈 스케줄"
+    }
+  },
+  "1512:2679": {
+    "inputs": {
+      "scheduler": "simple",
+      "steps": 20,
+      "denoise": 1,
+      "model": ["2678", 0]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "Ref2VA · 노이즈 스케줄"
+    }
+  },
+  "1512:2630": {
+    "inputs": {
+      "samples": ["1512:2956", 0],
+      "vae": ["1512:2584", 0]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "FL2VA · 영상 디코딩"
+    }
+  },
+  "1512:2631": {
+    "inputs": {
+      "samples": ["1512:2956", 0],
+      "vae": ["1512:2585", 0]
+    },
+    "class_type": "VAEDecodeAudio",
+    "_meta": {
+      "title": "FL2VA · 오디오 디코딩"
+    }
+  },
+  "1512:2675": {
+    "inputs": {
+      "switch": ["2693", 6],
+      "on_false": ["1512:2938", 0],
+      "on_true": ["1512:2929", 0]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "최종 오디오 · 생성 경로 선택"
+    }
+  },
+  "1512:2584": {
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "영상 VAE 불러오기"
+    }
+  },
+  "1512:2585": {
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "오디오 VAE 불러오기"
+    }
+  },
+  "1512:2667": {
+    "inputs": {
+      "model": ["1512:2691", 0],
+      "conditioning": ["1512:2700", 0]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "Ref2VA · 조건 가이더"
+    }
+  },
+  "1512:2592": {
+    "inputs": {
+      "model": ["1512:2692", 0],
+      "conditioning": ["1512:2701", 0]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "FL2VA · 조건 가이더"
+    }
+  },
+  "1512:2692": {
+    "inputs": {
+      "shift_video": 12,
+      "shift_audio": 3,
+      "model": ["2678", 0]
+    },
+    "class_type": "MiniMaxH3SigmaShift",
+    "_meta": {
+      "title": "FL2VA · 영상·오디오 Sigma Shift"
+    }
+  },
+  "1512:2691": {
+    "inputs": {
+      "shift_video": 12,
+      "shift_audio": 3,
+      "model": ["2678", 0]
+    },
+    "class_type": "MiniMaxH3SigmaShift",
+    "_meta": {
+      "title": "Ref2VA · 영상·오디오 Sigma Shift"
+    }
+  },
+  "1512:2700": {
+    "inputs": {
+      "clip": ["1512:2587", 0],
+      "vae": ["1512:2584", 0],
+      "guide": ["2693", 0],
+      "audio_vae": ["1512:2585", 0]
+    },
+    "class_type": "MiniMaxH3DirectorGuide",
+    "_meta": {
+      "title": "Ref2VA · Director 조건 구성"
+    }
+  },
+  "1512:2600": {
+    "inputs": {
+      "noise_seed": ["2948", 0]
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "시드 → 공통 노이즈"
+    }
+  },
+  "1512:2650": {
+    "inputs": {
+      "sage_attention": "auto",
+      "allow_compile": false,
+      "model": ["1512:2685", 0]
+    },
+    "class_type": "PathchSageAttentionKJ",
+    "_meta": {
+      "title": "FL2VA · Sage Attention"
+    }
+  },
+  "1512:2664": {
+    "inputs": {
+      "sage_attention": "auto",
+      "allow_compile": false,
+      "model": ["1512:2686", 0]
+    },
+    "class_type": "PathchSageAttentionKJ",
+    "_meta": {
+      "title": "Ref2VA · Sage Attention"
+    }
+  },
+  "1512:2766": {
+    "inputs": {
+      "step": ["1512:2784", 1],
+      "sigmas": ["1512:2590", 0]
+    },
+    "class_type": "SplitSigmas",
+    "_meta": {
+      "title": "FL2VA · 기본 / 보정 스텝 분리"
+    }
+  },
+  "1512:2767": {
+    "inputs": {
+      "switch": false,
+      "on_false": ["1512:2590", 0],
+      "on_true": ["1512:2766", 0]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "FL2VA · 전체 / 1차 스케줄 선택"
+    }
+  },
+  "1512:2768": {
+    "inputs": {
+      "av_latent": ["1512:2591", 1]
+    },
+    "class_type": "LTXVSeparateAVLatent",
+    "_meta": {
+      "title": "FL2VA · 영상 / 오디오 잠재값 분리"
+    }
+  },
+  "1512:2770": {
+    "inputs": {
+      "video_latent": ["1512:2769", 0],
+      "audio_latent": ["1512:2768", 1]
+    },
+    "class_type": "LTXVConcatAVLatent",
+    "_meta": {
+      "title": "FL2VA · 오디오 잠재값 재결합"
+    }
+  },
+  "1512:2772": {
+    "inputs": {
+      "model": ["1512:2692", 0],
+      "conditioning": ["1512:2827", 0]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "FL2VA · 보정 가이더"
+    }
+  },
+  "1512:2774": {
+    "inputs": {
+      "switch": false,
+      "on_false": ["1512:2591", 0],
+      "on_true": ["1512:2773", 0]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "FL2VA · 원본 / LBH 결과 선택"
+    }
+  },
+  "1512:2775": {
+    "inputs": {
+      "step": ["1512:2784", 1],
+      "sigmas": ["1512:2679", 0]
+    },
+    "class_type": "SplitSigmas",
+    "_meta": {
+      "title": "Ref2VA · 기본 / 보정 스텝 분리"
+    }
+  },
+  "1512:2776": {
+    "inputs": {
+      "switch": false,
+      "on_false": ["1512:2679", 0],
+      "on_true": ["1512:2775", 0]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "Ref2VA · 전체 / 1차 스케줄 선택"
+    }
+  },
+  "1512:2777": {
+    "inputs": {
+      "av_latent": ["1512:2668", 1]
+    },
+    "class_type": "LTXVSeparateAVLatent",
+    "_meta": {
+      "title": "Ref2VA · 영상 / 오디오 잠재값 분리"
+    }
+  },
+  "1512:2779": {
+    "inputs": {
+      "video_latent": ["1512:2778", 0],
+      "audio_latent": ["1512:2777", 1]
+    },
+    "class_type": "LTXVConcatAVLatent",
+    "_meta": {
+      "title": "Ref2VA · 오디오 잠재값 재결합"
+    }
+  },
+  "1512:2781": {
+    "inputs": {
+      "model": ["1512:2691", 0],
+      "conditioning": ["1512:2828", 0]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "Ref2VA · 보정 가이더"
+    }
+  },
+  "1512:2782": {
+    "inputs": {
+      "noise": ["1512:2600", 0],
+      "guider": ["1512:2781", 0],
+      "sampler": ["1512:2598", 0],
+      "sigmas": ["1512:2775", 1],
+      "latent_image": ["1512:2779", 0]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "Ref2VA · 마지막 4스텝 보정"
+    }
+  },
+  "1512:2783": {
+    "inputs": {
+      "switch": false,
+      "on_false": ["1512:2668", 0],
+      "on_true": ["1512:2782", 0]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "Ref2VA · 원본 / LBH 결과 선택"
+    }
+  },
+  "1512:2784": {
+    "inputs": {
+      "expression": "max(1, a - 4)",
+      "values.a": 20
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "LBH · 마지막 4스텝 확보"
+    }
+  },
+  "1512:2802": {
+    "inputs": {
+      "value": 1.5
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "LBH · 확대 배율"
+    }
+  },
+  "1512:2816": {
+    "inputs": {
+      "index": 2,
+      "value0": ["1512:2586", 0],
+      "value1": ["1512:2650", 0],
+      "value2": ["1512:2818", 0]
+    },
+    "class_type": "easy anythingIndexSwitch",
+    "_meta": {
+      "title": "FL2VA · Attention 방식 선택"
+    }
+  },
+  "1512:2818": {
+    "inputs": {
+      "attention": "comfy kitchen attention",
+      "model": ["1512:2586", 0]
+    },
+    "class_type": "ModelAttentionBackend",
+    "_meta": {
+      "title": "FL2VA · Kitchen Attention"
+    }
+  },
+  "1512:2819": {
+    "inputs": {
+      "attention": "comfy kitchen attention",
+      "model": ["1512:2588", 0]
+    },
+    "class_type": "ModelAttentionBackend",
+    "_meta": {
+      "title": "Ref2VA · Kitchen Attention"
+    }
+  },
+  "1512:2828": {
+    "inputs": {
+      "conditioning": ["1512:2700", 0],
+      "base_latent": ["1512:2777", 0],
+      "target_latent": ["1512:2778", 0],
+      "vae": ["1512:2584", 0],
+      "guide": ["2693", 0]
+    },
+    "class_type": "DirectorPlusConditioningMatchLatent",
+    "_meta": {
+      "title": "Ref2VA · 고해상도 조건 맞추기"
+    }
+  },
+  "1512:2827": {
+    "inputs": {
+      "conditioning": ["1512:2701", 0],
+      "base_latent": ["1512:2768", 0],
+      "target_latent": ["1512:2769", 0],
+      "vae": ["1512:2584", 0],
+      "guide": ["2693", 0]
+    },
+    "class_type": "DirectorPlusConditioningMatchLatent",
+    "_meta": {
+      "title": "FL2VA · 고해상도 조건 맞추기"
+    }
+  },
+  "1512:2756": {
+    "inputs": {
+      "width": ["2693", 3],
+      "height": ["2693", 4],
+      "length": ["2693", 1]
+    },
+    "class_type": "EmptyMiniMaxH3LatentAV",
+    "_meta": {
+      "title": "생성용 빈 영상·오디오 잠재값"
+    }
+  },
+  "1512:2773": {
+    "inputs": {
+      "noise": ["1512:2600", 0],
+      "guider": ["1512:2772", 0],
+      "sampler": ["1512:2598", 0],
+      "sigmas": ["1512:2766", 1],
+      "latent_image": ["1512:2770", 0]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "FL2VA · 마지막 4스텝 보정"
+    }
+  },
+  "1512:2817": {
+    "inputs": {
+      "index": 2,
+      "value0": ["1512:2588", 0],
+      "value1": ["1512:2664", 0],
+      "value2": ["1512:2819", 0]
+    },
+    "class_type": "easy anythingIndexSwitch",
+    "_meta": {
+      "title": "Ref2VA · Attention 방식 선택"
+    }
+  },
+  "1512:2701": {
+    "inputs": {
+      "clip": ["2678", 1],
+      "vae": ["1512:2584", 0],
+      "guide": ["2693", 0],
+      "audio_vae": ["1512:2585", 0]
+    },
+    "class_type": "MiniMaxH3DirectorGuide",
+    "_meta": {
+      "title": "FL2VA · Director 조건 구성"
+    }
+  },
+  "1512:2677": {
+    "inputs": {
+      "switch": ["2693", 6],
+      "on_false": ["1512:2671", 0],
+      "on_true": ["1512:2630", 0]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "최종 영상 · 생성 경로 선택"
+    }
+  },
+  "1512:2778": {
+    "inputs": {
+      "model_name": "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
+      "mode": "scale by multiplier",
+      "mode.scale": ["1512:2802", 0],
+      "align": 32,
+      "enable_temporal_chunking": true,
+      "force_unload": true,
+      "device": "cuda",
+      "precision": "bf16",
+      "latent": ["1512:2777", 0]
+    },
+    "class_type": "MinimaxH3LatentUpscaler3D",
+    "_meta": {
+      "title": "Ref2VA · LBH 영상 잠재값 확대"
+    }
+  },
+  "1512:2769": {
+    "inputs": {
+      "model_name": "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
+      "mode": "scale by multiplier",
+      "mode.scale": ["1512:2802", 0],
+      "align": 32,
+      "enable_temporal_chunking": true,
+      "force_unload": true,
+      "device": "cuda",
+      "precision": "bf16",
+      "latent": ["1512:2768", 0]
+    },
+    "class_type": "MinimaxH3LatentUpscaler3D",
+    "_meta": {
+      "title": "FL2VA · LBH 영상 잠재값 확대"
+    }
+  },
+  "1512:2910": {
+    "inputs": {
+      "sampler_name": "euler",
+      "lbh_enabled": false,
+      "lbh_scale": 1.5,
+      "lbh_model_name": "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
+      "lbh_full_first_pass": false,
+      "audio_regen_enabled": false,
+      "derope_enabled": false,
+      "face_refine_enabled": false,
+      "guide": ["2693", 0],
+      "model": ["1512:2691", 0],
+      "clip": ["2678", 1],
+      "vae": ["1512:2584", 0],
+      "audio_vae": ["1512:2585", 0],
+      "sigmas": ["1512:2679", 0],
+      "audio_regen_model": ["1512:2919", 0]
+    },
+    "class_type": "DirectorPlusGenerate",
+    "_meta": {
+      "title": "Director · 긴 영상"
+    }
+  },
+  "1512:2919": {
+    "inputs": {
+      "shift_video": 12,
+      "shift_audio": 3,
+      "model": ["1512:2946", 0]
+    },
+    "class_type": "MiniMaxH3SigmaShift",
+    "_meta": {
+      "title": "오디오 재생성 · 기본 모델 Sigma Shift (LoRA 미적용)"
+    }
+  },
+  "1512:2920": {
+    "inputs": {
+      "scheduler": "simple",
+      "steps": 30,
+      "denoise": 0.5,
+      "model": ["1512:2919", 0]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "오디오 재생성 · 30스텝 / denoise 0.5"
+    }
+  },
+  "1512:2921": {
+    "inputs": {
+      "av_latent": ["1512:2956", 0]
+    },
+    "class_type": "LTXVSeparateAVLatent",
+    "_meta": {
+      "title": "FL2VA · 최종 잠재값 영상/오디오 분리"
+    }
+  },
+  "1512:2922": {
+    "inputs": {
+      "scale_by": 0.5,
+      "upscale_method": "bilinear",
+      "samples": ["1512:2921", 0]
+    },
+    "class_type": "MiniMaxH3LatentUpscale",
+    "_meta": {
+      "title": "FL2VA · 영상 잠재값 0.5배 축소"
+    }
+  },
+  "1512:2923": {
+    "inputs": {
+      "video_latent": ["1512:2922", 0],
+      "audio_latent": ["1512:2921", 1]
+    },
+    "class_type": "LTXVConcatAVLatent",
+    "_meta": {
+      "title": "FL2VA · 축소 영상 + 오디오 재결합"
+    }
+  },
+  "1512:2924": {
+    "inputs": {
+      "conditioning": ["1512:2701", 0],
+      "base_latent": ["1512:2768", 0],
+      "target_latent": ["1512:2922", 0],
+      "vae": ["1512:2584", 0],
+      "guide": ["2693", 0]
+    },
+    "class_type": "DirectorPlusConditioningMatchLatent",
+    "_meta": {
+      "title": "FL2VA · 재생성 조건 크기 맞추기"
+    }
+  },
+  "1512:2925": {
+    "inputs": {
+      "model": ["1512:2919", 0],
+      "conditioning": ["1512:2924", 0]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "FL2VA · 재생성 가이더 (기본 모델)"
+    }
+  },
+  "1512:2926": {
+    "inputs": {
+      "noise": ["1512:2600", 0],
+      "guider": ["1512:2925", 0],
+      "sampler": ["1512:2598", 0],
+      "sigmas": ["1512:2920", 0],
+      "latent_image": ["1512:2923", 0]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "FL2VA · 오디오 재생성 샘플링"
+    }
+  },
+  "1512:2927": {
+    "inputs": {
+      "av_latent": ["1512:2926", 0]
+    },
+    "class_type": "LTXVSeparateAVLatent",
+    "_meta": {
+      "title": "FL2VA · 재생성 오디오 꺼내기"
+    }
+  },
+  "1512:2928": {
+    "inputs": {
+      "samples": ["1512:2927", 1],
+      "vae": ["1512:2585", 0]
+    },
+    "class_type": "VAEDecodeAudio",
+    "_meta": {
+      "title": "FL2VA · 재생성 오디오 디코딩"
+    }
+  },
+  "1512:2929": {
+    "inputs": {
+      "switch": false,
+      "on_false": ["1512:2631", 0],
+      "on_true": ["1512:2928", 0]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "FL2VA · 오디오 · 원본 / 재생성 선택"
+    }
+  },
+  "1512:2930": {
+    "inputs": {
+      "av_latent": ["1512:2953", 0]
+    },
+    "class_type": "LTXVSeparateAVLatent",
+    "_meta": {
+      "title": "Ref2VA · 최종 잠재값 영상/오디오 분리"
+    }
+  },
+  "1512:2931": {
+    "inputs": {
+      "scale_by": 0.5,
+      "upscale_method": "bilinear",
+      "samples": ["1512:2930", 0]
+    },
+    "class_type": "MiniMaxH3LatentUpscale",
+    "_meta": {
+      "title": "Ref2VA · 영상 잠재값 0.5배 축소"
+    }
+  },
+  "1512:2932": {
+    "inputs": {
+      "video_latent": ["1512:2931", 0],
+      "audio_latent": ["1512:2930", 1]
+    },
+    "class_type": "LTXVConcatAVLatent",
+    "_meta": {
+      "title": "Ref2VA · 축소 영상 + 오디오 재결합"
+    }
+  },
+  "1512:2933": {
+    "inputs": {
+      "conditioning": ["1512:2700", 0],
+      "base_latent": ["1512:2777", 0],
+      "target_latent": ["1512:2931", 0],
+      "vae": ["1512:2584", 0],
+      "guide": ["2693", 0]
+    },
+    "class_type": "DirectorPlusConditioningMatchLatent",
+    "_meta": {
+      "title": "Ref2VA · 재생성 조건 크기 맞추기"
+    }
+  },
+  "1512:2934": {
+    "inputs": {
+      "model": ["1512:2919", 0],
+      "conditioning": ["1512:2933", 0]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "Ref2VA · 재생성 가이더 (기본 모델)"
+    }
+  },
+  "1512:2935": {
+    "inputs": {
+      "noise": ["1512:2600", 0],
+      "guider": ["1512:2934", 0],
+      "sampler": ["1512:2598", 0],
+      "sigmas": ["1512:2920", 0],
+      "latent_image": ["1512:2932", 0]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "Ref2VA · 오디오 재생성 샘플링"
+    }
+  },
+  "1512:2936": {
+    "inputs": {
+      "av_latent": ["1512:2935", 0]
+    },
+    "class_type": "LTXVSeparateAVLatent",
+    "_meta": {
+      "title": "Ref2VA · 재생성 오디오 꺼내기"
+    }
+  },
+  "1512:2937": {
+    "inputs": {
+      "samples": ["1512:2936", 1],
+      "vae": ["1512:2585", 0]
+    },
+    "class_type": "VAEDecodeAudio",
+    "_meta": {
+      "title": "Ref2VA · 재생성 오디오 디코딩"
+    }
+  },
+  "1512:2938": {
+    "inputs": {
+      "switch": false,
+      "on_false": ["1512:2669", 0],
+      "on_true": ["1512:2937", 0]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "Ref2VA · 오디오 · 원본 / 재생성 선택"
+    }
+  },
+  "1512:2686": {
+    "inputs": {
+      "model": ["1512:2588", 0]
+    },
+    "class_type": "MiniMaxH3MemoryEfficientSageAttentionPatch",
+    "_meta": {
+      "title": "Ref2VA · 메모리 절약 Sage"
+    }
+  },
+  "1512:2685": {
+    "inputs": {
+      "model": ["1512:2586", 0]
+    },
+    "class_type": "MiniMaxH3MemoryEfficientSageAttentionPatch",
+    "_meta": {
+      "title": "FL2VA · 메모리 절약 Sage"
+    }
+  },
+  "1512:2588": {
+    "inputs": {
+      "unet_name": "Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Ref2VA 모델 불러오기"
+    }
+  },
+  "1512:2946": {
+    "inputs": {
+      "switch": ["2693", 6],
+      "on_false": ["1512:2817", 0],
+      "on_true": ["1512:2816", 0]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "오디오 재생성 · 모델 선택 (LoRA 적용 전)"
+    }
+  },
+  "1512:2951": {
+    "inputs": {
+      "switch": false,
+      "on_false": ["1512:2700", 0],
+      "on_true": ["1512:2828", 0]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "Ref2VA · 후처리 조건 (LBH 켜면 고해상도 조건)"
+    }
+  },
+  "1512:2952": {
+    "inputs": {
+      "frame_count": ["2693", 1],
+      "noise_seed": ["2948", 0],
+      "sampler_name": "euler",
+      "enabled": false,
+      "model": ["1512:2691", 0],
+      "conditioning": ["1512:2951", 0],
+      "latent": ["1512:2783", 0],
+      "sigmas": ["1512:2679", 0],
+      "vae": ["1512:2584", 0]
+    },
+    "class_type": "DirectorPlusMotionLab",
+    "_meta": {
+      "title": "Ref2VA · Motion Lab (Settings 스위치)"
+    }
+  },
+  "1512:2953": {
+    "inputs": {
+      "steps": 20,
+      "noise_seed": ["2948", 0],
+      "enabled": false,
+      "model": ["1512:2691", 0],
+      "conditioning": ["1512:2951", 0],
+      "latent": ["1512:2952", 0],
+      "vae": ["1512:2584", 0]
+    },
+    "class_type": "DirectorPlusFaceRefine",
+    "_meta": {
+      "title": "Ref2VA · 얼굴 다듬기 (Settings 스위치)"
+    }
+  },
+  "1512:2954": {
+    "inputs": {
+      "switch": false,
+      "on_false": ["1512:2701", 0],
+      "on_true": ["1512:2827", 0]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "FL2VA · 후처리 조건 (LBH 켜면 고해상도 조건)"
+    }
+  },
+  "1512:2955": {
+    "inputs": {
+      "frame_count": ["2693", 1],
+      "noise_seed": ["2948", 0],
+      "sampler_name": "euler",
+      "enabled": false,
+      "model": ["1512:2692", 0],
+      "conditioning": ["1512:2954", 0],
+      "latent": ["1512:2774", 0],
+      "sigmas": ["1512:2590", 0],
+      "vae": ["1512:2584", 0]
+    },
+    "class_type": "DirectorPlusMotionLab",
+    "_meta": {
+      "title": "FL2VA · Motion Lab (Settings 스위치)"
+    }
+  },
+  "1512:2956": {
+    "inputs": {
+      "steps": 20,
+      "noise_seed": ["2948", 0],
+      "enabled": false,
+      "model": ["1512:2692", 0],
+      "conditioning": ["1512:2954", 0],
+      "latent": ["1512:2955", 0],
+      "vae": ["1512:2584", 0]
+    },
+    "class_type": "DirectorPlusFaceRefine",
+    "_meta": {
+      "title": "FL2VA · 얼굴 다듬기 (Settings 스위치)"
+    }
+  },
+  "1512:2957": {
+    "inputs": {
+      "chunks": 4,
+      "seq_threshold": 4096,
+      "model": ["1512:2816", 0]
+    },
+    "class_type": "MiniMaxChunkFeedForward",
+    "_meta": {
+      "title": "FL2VA · Chunk FeedForward (4분할)"
+    }
+  },
+  "1512:2958": {
+    "inputs": {
+      "switch": true,
+      "on_false": ["1512:2816", 0],
+      "on_true": ["1512:2957", 0]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "FL2VA · Chunk FeedForward 켜기/끄기"
+    }
+  },
+  "1512:2959": {
+    "inputs": {
+      "chunks": 4,
+      "seq_threshold": 4096,
+      "model": ["1512:2817", 0]
+    },
+    "class_type": "MiniMaxChunkFeedForward",
+    "_meta": {
+      "title": "Ref2VA · Chunk FeedForward (4분할)"
+    }
+  },
+  "1512:2960": {
+    "inputs": {
+      "switch": true,
+      "on_false": ["1512:2817", 0],
+      "on_true": ["1512:2959", 0]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "Ref2VA · Chunk FeedForward 켜기/끄기"
+    }
+  }
+}

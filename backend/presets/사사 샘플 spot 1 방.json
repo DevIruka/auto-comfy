@@ -1,0 +1,44 @@
+{
+  "fixedPrefix": "",
+  "styleTrigger": "kentaro_miura_style, monochrome, greyscale, ",
+  "character": "1girl, solo, mature female, mature, milf, black eyes, very long hair, half-up hair, high ponytail, hair tie, swept back hair, long side locks, no bangs, hair ornament, medium breast, slender, ",
+  "outfit": "blue china dress, blue chinese clothes, short sleeves, white dress, ribbon, floral print, blue clothes,",
+  "backgroundPositive": "Chinese traditional bedroom, dark rosewood furniture, red and gold color scheme, silk curtains, canopy bed, paper lanterns, lattice windows, warm lighting, detailed interior, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, young, loli, black clothes, white clothes, beige background, ",
+  "prefixPrompt": "A beautiful anime woman with black long hair, black eyes, ",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, standing, arms at sides, ",
+  "anchorAspect": "portrait",
+  "anchorWidth": 1024,
+  "anchorHeight": 1536,
+  "comfyInstanceId": "comfy3",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "Kentaro Miura.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "trex.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "mature slider.safetensors",
+      "strengthModel": -8,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "사사 샘플 spot 1 방",
+  "updatedAt": "2026-08-14T02:31:50.270Z"
+}

@@ -10,13 +10,12 @@ import {
   AUTOMATION_IMAGE_EXT,
   AUTOMATION_POSES,
   IDLE_PER_PROMPT_MAX,
-  IDLE_PROMPT_VARIANT_COUNT,
 } from "./automation/constants.js";
 import { createAutomationStructureUtils } from "./automation/structureUtils.js";
 import { createAutomationOutputUtils } from "./automation/outputUtils.js";
 import { createAutomationPromptUtils } from "./automation/promptUtils.js";
 import { buildAutomationScanResult } from "./automation/scanInput.js";
-import { buildAutomationPlanFromPoses, resolveAutomationOutputBasePath, resolveIdleTargetCount } from "./automation/planUtils.js";
+import { buildAutomationPlanFromPoses, resolveAutomationOutputBasePath, resolveIdlePerPrompt } from "./automation/planUtils.js";
 import { queueAutomationJobsForPair } from "./automation/runPlanner.js";
 
 export function registerAutomationRoutes({
@@ -78,7 +77,13 @@ export function registerAutomationRoutes({
     AUTOMATION_EMOTIONS,
   });
 
-  const { loadEmotionConfig, buildPromptIdle, buildPromptSpeakNatural } = createAutomationPromptUtils({
+  const {
+    loadEmotionConfig,
+    listIdlePrompts,
+    buildPromptIdle,
+    buildPromptIdleById,
+    buildPromptSpeakNatural,
+  } = createAutomationPromptUtils({
     fs,
     emotionConfigPath,
   });
@@ -87,6 +92,19 @@ export function registerAutomationRoutes({
     const parsed = Number(value);
     if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 3) return parsed;
     return null;
+  }
+
+  /**
+   * Normalize a selectedIdlePrompts request value against the configured pool.
+   * - undefined/null → all available prompt ids (default-all behavior).
+   * - array → keep only valid ids, preserving config order; [] stays [] (0 idle).
+   */
+  function normalizeSelectedIdlePrompts(value, config) {
+    const allIds = listIdlePrompts(config).map((p) => p.id);
+    if (value === undefined || value === null) return allIds;
+    if (!Array.isArray(value)) return allIds;
+    const requested = new Set(value.map((v) => String(v)));
+    return allIds.filter((id) => requested.has(id));
   }
 
   function pickAutoEndpoint() {
@@ -159,6 +177,7 @@ export function registerAutomationRoutes({
     aspectRatio,
     watermark,
     batchCount,
+    uncensored,
   }) {
     const jobId = nextJobId();
     const retryPayload = {
@@ -182,6 +201,7 @@ export function registerAutomationRoutes({
       pose,
       clothing,
       sourceKey: sourceKey || "",
+      uncensored: Boolean(uncensored),
       idleIndex,
       emotionFrom,
       emotionTo,
@@ -488,6 +508,20 @@ export function registerAutomationRoutes({
     return res.json(job);
   });
 
+  app.get("/automation/idle-prompts", (req, res) => {
+    try {
+      const config = loadEmotionConfig();
+      if (!config) {
+        return res
+          .status(500)
+          .json({ success: false, error: "Failed to load emotion-config-optimized.json." });
+      }
+      return res.json({ success: true, prompts: listIdlePrompts(config) });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: error.message || String(error) });
+    }
+  });
+
   app.post("/automation/scan", (req, res) => {
     try {
       const {
@@ -502,6 +536,8 @@ export function registerAutomationRoutes({
         ignoreExistingOutput = false,
         videosPerClip = 1,
         idleTargetCount,
+        selectedIdlePrompts,
+        applyCommonToNaked = false,
       } = req.body || {};
 
       if (!inputPath || typeof inputPath !== "string") {
@@ -513,11 +549,17 @@ export function registerAutomationRoutes({
         return res.status(400).json({ error: "inputPath must be an existing directory." });
       }
 
+      const scanConfig = loadEmotionConfig();
+      const allIdlePrompts = listIdlePrompts(scanConfig).map((p) => p.id);
+      const normalizedIdlePrompts = normalizeSelectedIdlePrompts(
+        selectedIdlePrompts,
+        scanConfig,
+      );
+
       const batchCount = Math.min(5, Math.max(1, Number(videosPerClip) || 1));
-      const idleTarget = resolveIdleTargetCount({
+      const idlePerPrompt = resolveIdlePerPrompt({
         idleTargetCount,
         batchCount,
-        IDLE_PROMPT_VARIANT_COUNT,
         IDLE_PER_PROMPT_MAX,
       });
       const selectedEmotions = normalizeTargetEmotions(
@@ -562,7 +604,10 @@ export function registerAutomationRoutes({
         selectedEmotions,
         targetTransition: normalizedTransition,
         existingOutput,
-        idleTarget,
+        idlePerPrompt,
+        allIdlePrompts,
+        selectedIdlePrompts: normalizedIdlePrompts,
+        applyCommonToNaked: Boolean(applyCommonToNaked),
         batchCount,
         AUTOMATION_POSES,
         AUTOMATION_EMOTIONS,
@@ -620,12 +665,7 @@ export function registerAutomationRoutes({
       }
 
       const batchCount = Math.min(5, Math.max(1, Number(videosPerClip) || 1));
-      const idleTarget = resolveIdleTargetCount({
-        idleTargetCount,
-        batchCount,
-        IDLE_PROMPT_VARIANT_COUNT,
-        IDLE_PER_PROMPT_MAX,
-      });
+      const allIdlePrompts = listIdlePrompts(config).map((p) => p.id);
       const selectedEmotions = normalizeTargetEmotions(targetEmotions, AUTOMATION_EMOTIONS);
       const selectedClothing = normalizeTargetClothing(targetClothing, AUTOMATION_CLOTHING);
       const normalizedTransition = normalizeTargetTransition(targetTransition);
@@ -645,12 +685,19 @@ export function registerAutomationRoutes({
           5,
           Math.max(1, Number(pair.videosPerClip ?? batchCount) || 1),
         );
-        const rowIdleTarget = resolveIdleTargetCount({
+        const rowSelectedIdlePrompts = normalizeSelectedIdlePrompts(
+          pair.selectedIdlePrompts ?? req.body?.selectedIdlePrompts,
+          config,
+        );
+        const rowIdlePerPrompt = resolveIdlePerPrompt({
           idleTargetCount: pair.idleTargetCount ?? idleTargetCount,
           batchCount: rowBatchCount,
-          IDLE_PROMPT_VARIANT_COUNT,
           IDLE_PER_PROMPT_MAX,
         });
+        const rowApplyCommonToNaked =
+          typeof pair.applyCommonToNaked === "boolean"
+            ? pair.applyCommonToNaked
+            : Boolean(req.body?.applyCommonToNaked);
         const rowSelectedEmotions = normalizeTargetEmotions(
           pair.targetEmotions ?? selectedEmotions,
           AUTOMATION_EMOTIONS,
@@ -706,7 +753,9 @@ export function registerAutomationRoutes({
           prefixPrompt: rowPrompt,
           config,
           batchCount: rowBatchCount,
-          idleTarget: rowIdleTarget,
+          idlePerPrompt: rowIdlePerPrompt,
+          allIdlePrompts,
+          applyCommonToNaked: rowApplyCommonToNaked,
           duration,
           aspectRatio,
           watermark,
@@ -715,6 +764,7 @@ export function registerAutomationRoutes({
           rowIndex,
           selectedClothing: rowSelectedClothing,
           selectedEmotions: rowSelectedEmotions,
+          selectedIdlePrompts: rowSelectedIdlePrompts,
           targetTransition: rowTransition,
           existingOutput,
           AUTOMATION_POSES,
@@ -727,6 +777,7 @@ export function registerAutomationRoutes({
           listEmotionFoldersUnder,
           findClothingSubdir,
           buildPromptIdle,
+          buildPromptIdleById,
           buildPromptSpeakNatural,
           enqueueAutomationJob: (payload) =>
             enqueueAutomationJob({

@@ -14,8 +14,15 @@ export interface PoseExpressionConfig {
   negativePrompt: string;
 }
 
+export interface PoseLoraConfig {
+  loraName: string;
+  strengthModel: number;
+  strengthClip: number;
+}
+
 export interface PoseConfig {
-  [expression: string]: PoseExpressionConfig;
+  loras?: PoseLoraConfig[];
+  [key: string]: PoseExpressionConfig | PoseLoraConfig[] | undefined;
 }
 
 export interface ImgPoseConfig {
@@ -48,12 +55,124 @@ export interface ImageBatchJobParams {
   poses: PoseSelection[];
   batchSize: number;
   outputPath: string;
+  /** shortform = 720×1280 (default), portrait = 1024×1536, custom = width/height */
+  aspect?: "portrait" | "shortform" | "custom";
+  width?: number;
+  height?: number;
+  /** Request-time pose prompt patch. Never writes img-pose-config.json. */
+  promptPatch?: {
+    enabled: boolean;
+    addText?: string;
+    removeText?: string;
+    addPosition?: "prepend" | "append";
+  };
 }
 
 const RUNS_PER_POSE = 3; // 포즈당 완전 랜덤 시드로 3번 요청
+const MAX_LORA_SLOTS = 7;
+const PORTRAIT_WIDTH = 1024;
+const PORTRAIT_HEIGHT = 1536;
+const SHORTFORM_WIDTH = 720;
+const SHORTFORM_HEIGHT = 1280;
+
+function normalizeCustomDimension(value: unknown, fallback: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  const clamped = Math.min(2048, Math.max(256, n));
+  return Math.round(clamped / 8) * 8;
+}
+
+function resolveImageBatchSize(params: ImageBatchJobParams): {
+  width: number;
+  height: number;
+} {
+  if (params.aspect === "portrait") {
+    return { width: PORTRAIT_WIDTH, height: PORTRAIT_HEIGHT };
+  }
+  if (params.aspect === "custom") {
+    return {
+      width: normalizeCustomDimension(params.width, SHORTFORM_WIDTH),
+      height: normalizeCustomDimension(params.height, SHORTFORM_HEIGHT),
+    };
+  }
+  return { width: SHORTFORM_WIDTH, height: SHORTFORM_HEIGHT };
+}
 
 function randomSeed(): number {
   return Math.floor(Math.random() * 1e15);
+}
+
+function splitPromptTags(text: string): string[] {
+  return text
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0);
+}
+
+/**
+ * Copy-only patch of a pose expression prompt. The config file is never modified.
+ * Remove matches comma-separated tags (case-insensitive). Add prepends or appends.
+ */
+export function applyPosePromptPatch(
+  prompt: string,
+  patch?: ImageBatchJobParams["promptPatch"],
+): string {
+  if (!patch?.enabled) return prompt;
+
+  const removeSet = new Set(
+    splitPromptTags(patch.removeText ?? "").map((tag) => tag.toLowerCase()),
+  );
+  let tags = splitPromptTags(prompt);
+  if (removeSet.size > 0) {
+    tags = tags.filter((tag) => !removeSet.has(tag.toLowerCase()));
+  }
+
+  const addTags = splitPromptTags(patch.addText ?? "");
+  if (addTags.length > 0) {
+    tags =
+      patch.addPosition === "prepend"
+        ? [...addTags, ...tags]
+        : [...tags, ...addTags];
+  }
+
+  if (tags.length === 0) return "";
+  return `${tags.join(", ")},`;
+}
+
+function isExpressionConfig(value: unknown): value is PoseExpressionConfig {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    typeof (value as PoseExpressionConfig).prompt === "string" &&
+    typeof (value as PoseExpressionConfig).negativePrompt === "string"
+  );
+}
+
+function getPoseLoras(pose: PoseConfig | undefined): PoseLoraConfig[] {
+  if (!pose || !Array.isArray(pose.loras)) return [];
+  return pose.loras.filter(
+    (l) => !!l && typeof l.loraName === "string" && l.loraName.trim().length > 0,
+  );
+}
+
+function mergeLorasForPose(
+  uiLoras: LoraSlotConfig[],
+  pose: PoseConfig | undefined,
+): { loras: LoraSlotConfig[]; truncated: boolean; poseLoraNames: string[] } {
+  const ui = uiLoras.filter((s) => s.enabled && s.loraName);
+  const poseSlots: LoraSlotConfig[] = getPoseLoras(pose).map((l) => ({
+    enabled: true,
+    loraName: l.loraName,
+    strengthModel: l.strengthModel,
+    strengthClip: l.strengthClip,
+  }));
+  const merged = [...ui, ...poseSlots];
+  return {
+    loras: merged.slice(0, MAX_LORA_SLOTS),
+    truncated: merged.length > MAX_LORA_SLOTS,
+    poseLoraNames: poseSlots.map((l) => l.loraName),
+  };
 }
 
 export interface ImageBatchJob {
@@ -107,7 +226,10 @@ class ImageBatchService {
 
   getExpressions(poseName: string): string[] {
     const pose = this.poseConfig[poseName];
-    return pose ? Object.keys(pose) : [];
+    if (!pose) return [];
+    return Object.keys(pose).filter(
+      (k) => k !== "loras" && isExpressionConfig(pose[k]),
+    );
   }
 
   private addLog(jobId: string, message: string) {
@@ -203,7 +325,11 @@ class ImageBatchService {
     if (!job || !params) throw new Error("Job not found");
 
     job.status = "running";
-    this.addLog(jobId, `Batch started: ${params.poses.length} poses x ${RUNS_PER_POSE} random seeds = ${job.totalTasks} tasks`);
+    const { width, height } = resolveImageBatchSize(params);
+    this.addLog(
+      jobId,
+      `Batch started: ${params.poses.length} poses x ${RUNS_PER_POSE} random seeds = ${job.totalTasks} tasks (${width}×${height})`,
+    );
 
     const comfy = comfyManager.getInstance(params.instanceId);
 
@@ -217,13 +343,41 @@ class ImageBatchService {
         }
 
         job.currentPose = pose.poseName;
-        const poseData = this.poseConfig[pose.poseName]?.[pose.expression];
-        if (!poseData) {
+        const poseEntry = this.poseConfig[pose.poseName];
+        const rawExpr = poseEntry?.[pose.expression];
+        if (!isExpressionConfig(rawExpr)) {
           this.addLog(jobId, `⚠️ Config not found: ${pose.poseName}/${pose.expression}, skipping`);
           const skipCount = RUNS_PER_POSE * (pose.handFix ? 2 : 1);
           job.completedTasks += skipCount;
           this.broadcast(jobId);
           continue;
+        }
+        const poseData = rawExpr;
+        const compositionPrompt = applyPosePromptPatch(
+          poseData.prompt,
+          params.promptPatch,
+        );
+        if (
+          params.promptPatch?.enabled &&
+          compositionPrompt !== poseData.prompt
+        ) {
+          this.addLog(
+            jobId,
+            `Pose prompt patched for ${pose.poseName} [${pose.expression}] (config file unchanged)`,
+          );
+        }
+        const merged = mergeLorasForPose(params.loras, poseEntry);
+        if (merged.poseLoraNames.length > 0) {
+          this.addLog(
+            jobId,
+            `Pose LoRA: ${pose.poseName} + [${merged.poseLoraNames.join(", ")}]`,
+          );
+        }
+        if (merged.truncated) {
+          this.addLog(
+            jobId,
+            `⚠️ pose LoRA truncated: ${pose.poseName} (max ${MAX_LORA_SLOTS} slots)`,
+          );
         }
 
         const outputDir = join(params.outputPath, pose.poseName);
@@ -245,7 +399,7 @@ class ImageBatchService {
                 {
                   positive: this.buildPositivePrompt(
                     params.positiveBlocks,
-                    poseData.prompt,
+                    compositionPrompt,
                     "",
                   ),
                   negative: this.buildNegativePrompt(
@@ -258,7 +412,7 @@ class ImageBatchService {
                 {
                   positive: this.buildPositivePrompt(
                     params.positiveBlocks,
-                    poseData.prompt,
+                    compositionPrompt,
                     params.handFixPositive,
                   ),
                   negative: this.buildNegativePrompt(
@@ -273,7 +427,7 @@ class ImageBatchService {
                 {
                   positive: this.buildPositivePrompt(
                     params.positiveBlocks,
-                    poseData.prompt,
+                    compositionPrompt,
                     "",
                   ),
                   negative: this.buildNegativePrompt(
@@ -299,11 +453,13 @@ class ImageBatchService {
 
             try {
               const workflow = createImageGenWorkflow({
-                loras: params.loras,
+                loras: merged.loras,
                 positivePrompt: run.positive,
                 negativePrompt: run.negative,
                 seed,
                 batchSize: params.batchSize,
+                width,
+                height,
               });
 
               const queueResponse = await comfy.queuePrompt(workflow);

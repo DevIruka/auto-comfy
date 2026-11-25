@@ -254,13 +254,46 @@
     "class_type": "PreviewImage",
     "_meta": { "title": "이미지 미리보기" }
   },
-  "193": {
+  "213": {
+    "inputs": {
+      "lora_name": "add_saturation_XL.safetensors",
+      "strength_model": -1,
+      "strength_clip": 1,
+      "model": ["214", 0],
+      "clip": ["214", 1]
+    },
+    "class_type": "LoraLoader",
+    "_meta": { "title": "LoRA 로드" }
+  },
+  "214": {
+    "inputs": {
+      "lora_name": "add_saturation_XL.safetensors",
+      "strength_model": -1,
+      "strength_clip": 1,
+      "model": ["215", 0],
+      "clip": ["215", 1]
+    },
+    "class_type": "LoraLoader",
+    "_meta": { "title": "LoRA 로드" }
+  },
+  "215": {
     "inputs": {
       "lora_name": "add_saturation_XL.safetensors",
       "strength_model": -1,
       "strength_clip": 1,
       "model": ["189", 0],
       "clip": ["189", 1]
+    },
+    "class_type": "LoraLoader",
+    "_meta": { "title": "LoRA 로드" }
+  },
+  "193": {
+    "inputs": {
+      "lora_name": "add_saturation_XL.safetensors",
+      "strength_model": -1,
+      "strength_clip": 1,
+      "model": ["213", 0],
+      "clip": ["213", 1]
     },
     "class_type": "LoraLoader",
     "_meta": { "title": "LoRA 로드" }

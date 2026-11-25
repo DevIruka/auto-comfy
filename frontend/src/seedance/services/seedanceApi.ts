@@ -5,6 +5,7 @@ import type {
   AutomationQueuesStatus,
   GenerateRequest,
   GenerateResponse,
+  IdlePromptOption,
 } from "../types/app";
 
 const API_ROOT =
@@ -59,6 +60,12 @@ export function fetchSeedanceQueues() {
   return getJson<AutomationQueuesStatus>("/queues");
 }
 
+export function fetchIdlePrompts() {
+  return getJson<{ success?: boolean; prompts?: IdlePromptOption[]; error?: string }>(
+    "/automation/idle-prompts",
+  );
+}
+
 export function postSeedanceQueueControl(payload: {
   action: "pause" | "resume" | "stop";
   queue?: number;
@@ -78,6 +85,8 @@ export function postAutomationRun(payload: {
     targetEmotions?: string[];
     targetClothing?: "all" | "clothed" | "naked";
     targetTransition?: "all" | "same" | "toneutral";
+    selectedIdlePrompts?: string[];
+    applyCommonToNaked?: boolean;
   }>;
   prefixPrompt: string;
   videosPerClip?: number;
@@ -108,6 +117,8 @@ export function postAutomationScan(payload: {
   ignoreExistingOutput?: boolean;
   videosPerClip?: number;
   idleTargetCount?: number;
+  selectedIdlePrompts?: string[];
+  applyCommonToNaked?: boolean;
 }) {
   return postJson<AutomationScanResult>("/automation/scan", payload);
 }

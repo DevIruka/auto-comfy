@@ -34,6 +34,11 @@ export interface HistoryResponse {
           subfolder: string;
           type: string;
         }>;
+        videos?: Array<{
+          filename: string;
+          subfolder: string;
+          type: string;
+        }>;
       };
     };
     status: {
@@ -43,6 +48,27 @@ export interface HistoryResponse {
       messages?: [string, unknown][];
     };
   };
+}
+
+function contentTypeForUpload(filename: string): string {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  switch (ext) {
+    case "mp4":
+      return "video/mp4";
+    case "webm":
+      return "video/webm";
+    case "mov":
+      return "video/quicktime";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "webp":
+      return "image/webp";
+    case "gif":
+      return "image/gif";
+    default:
+      return "image/png";
+  }
 }
 
 export class ComfyService {
@@ -206,10 +232,13 @@ export class ComfyService {
 
   /**
    * Get available object info (nodes, models, etc.)
+   * Used by LoRA list fetch; allow longer timeout over slow tunnels.
    */
   async getObjectInfo() {
     try {
-      const response = await this.httpClient.get("/object_info");
+      const response = await this.httpClient.get("/object_info", {
+        timeout: 240000, // 4 min (2x default) — object_info / LoRA list can be large
+      });
       return response.data;
     } catch (error: any) {
       throw new Error(`Failed to get object info: ${error.message}`);
@@ -279,7 +308,7 @@ export class ComfyService {
 
         formData.append("image", imageBuffer, {
           filename: filename,
-          contentType: "image/png",
+          contentType: contentTypeForUpload(filename),
         });
 
         if (subfolder) {
@@ -420,7 +449,7 @@ export class ComfyService {
 
     // Poll for completion
     return new Promise((resolve, reject) => {
-      const maxAttempts = 120; // 10 minutes with 5 second intervals
+      const maxAttempts = 360; // 30 minutes with 5 second intervals (MiniMax H3)
       let attempts = 0;
 
       const checkStatus = async () => {
@@ -475,15 +504,13 @@ export class ComfyService {
             }
 
             if (status.completed && outputs) {
-              // Video workflow: optional wait for node 828 MKV
-              const has828 =
-                outputs["828"]?.gifs && outputs["828"].gifs.length > 0;
-              // Image or other: any output counts as done (e.g. node 1044, 212)
+              const video2568 =
+                outputs["2568"]?.videos?.[0] || outputs["2568"]?.gifs?.[0];
               const hasAnyOutput = Object.keys(outputs).length > 0;
 
-              if (has828) {
+              if (video2568) {
                 console.log(
-                  `✅ Workflow completed with video output (828 MKV: ${outputs["828"]?.gifs?.[0]?.filename})`,
+                  `✅ Workflow completed with video output (2568: ${video2568.filename})`,
                 );
               } else if (hasAnyOutput) {
                 console.log(

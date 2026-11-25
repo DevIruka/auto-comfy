@@ -357,6 +357,41 @@
   border-radius: 4px;
 }
 
+.pod-hint {
+  margin-top: 0.4rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.78rem;
+  color: #2563eb;
+  background: #eff6ff;
+  border-radius: 4px;
+}
+
+.pod-lora-section {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.pod-lora-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.4rem;
+}
+
+.dashboard-conn-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #7c3aed;
+  background: #f3e8ff;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
 /* Dashboard Section */
 .dashboard-section {
   display: flex;
@@ -549,6 +584,16 @@
 
 .preset-btn-overwrite:disabled {
   opacity: 0.45;
+}
+
+.preset-btn-workspace {
+  background: #ecfeff;
+  color: #0e7490;
+  border-color: #67e8f9;
+}
+
+.preset-btn-workspace:hover:not(:disabled) {
+  background: #cffafe;
 }
 
 .preset-btn-delete {
@@ -997,6 +1042,25 @@
   margin-bottom: 1rem;
 }
 
+.emotion-pipeline-card .button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.emotion-pipeline-card .scan-results-mini {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.emotion-pipeline-card .scan-results-mini p {
+  margin: 0.15rem 0;
+}
+
 .emotion-pipeline-card .pipeline-status {
   margin-top: 1.5rem;
   padding: 1rem;
@@ -1036,10 +1100,27 @@
   font-size: 1rem;
 }
 
+.emotion-pipeline-card .ep-lora-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.emotion-pipeline-card .ep-lora-toolbar .lora-search-input {
+  min-width: 140px;
+  max-width: 220px;
+  flex: 1;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.85rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}
+
 .emotion-pipeline-card .ep-btn-sm {
   padding: 0.35rem 0.75rem;
   font-size: 0.85rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0;
 }
 
 .emotion-pipeline-card .ep-lora-slots {
@@ -1059,6 +1140,38 @@
   opacity: 0.6;
 }
 
+.emotion-pipeline-card .ep-lora-extra {
+  flex: 1 1 100%;
+}
+
+.emotion-pipeline-card .ep-lora-extra-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px dashed #c8cce0;
+  border-radius: 8px;
+  background: #f5f6fa;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #444;
+}
+
+.emotion-pipeline-card .ep-lora-extra-arrow {
+  font-size: 0.65rem;
+  color: #888;
+  width: 10px;
+}
+
+.emotion-pipeline-card .ep-lora-extra-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
 .emotion-pipeline-card .ep-check {
   display: flex;
   align-items: center;
@@ -1071,6 +1184,24 @@
   width: 100%;
   padding: 0.35rem;
   margin-bottom: 0.35rem;
+}
+
+.emotion-pipeline-card .lora-select-wrap {
+  width: 100%;
+}
+
+.emotion-pipeline-card .lora-select-error {
+  border-color: #dc2626 !important;
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
+.emotion-pipeline-card .lora-select-error-msg {
+  margin-top: 0.25rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+  color: #dc2626;
+  font-weight: 600;
 }
 
 .emotion-pipeline-card .ep-strengths {

@@ -1,26 +1,126 @@
-import { readdir, stat, mkdir } from "fs/promises";
-import { join, basename, extname } from "path";
+import { mkdir, readFile, unlink } from "fs/promises";
+import { tmpdir } from "os";
+import { join } from "path";
 import { v4 as uuidv4 } from "uuid";
-import { readFileSync } from "fs";
-import type { ComfyService } from "./comfy.service.js";
+import type { ComfyService, ComfyWorkflow } from "./comfy.service.js";
 import { comfyManager } from "./comfy-manager.service.js";
-import { createWanWorkflow } from "../utils/workflow-helpers.js";
+import {
+  createFrameInterpolateWorkflow,
+  createMinimaxH3Workflow,
+} from "../utils/workflow-helpers.js";
+import { sshTunnelService } from "./ssh-tunnel.service.js";
 import { runPodService } from "./runpod.service.js";
 import { podUsageTracker } from "./pod-usage-tracker.service.js";
 import { instanceQueueManager } from "./instance-queue-manager.service.js";
+import {
+  appendInterpolationFailureReport,
+  writeBatchV1FailureReport,
+  type BatchV2Failure,
+} from "../utils/batch-v2-error-report.js";
+import { generateWanI2VToFile } from "./mulerouter-wan-i2v.service.js";
 import { readBatchVideoSettings } from "./batch-video-settings.service.js";
+import {
+  countRoutedTasks,
+  generateVideoFilename,
+  getMinimaxPosePrompt,
+  listExistingVideoNumbers,
+  loadMinimaxPromptConfig,
+  loadPoseConfig,
+  parsePoseOutputNaming,
+  planAdultVideoTasks,
+  resolvePoseConfigKey,
+  resolveWanVersionFromPose,
+  routeAdultVideoTasks,
+  scanAdultVideoFolder,
+  sortPendingByEngine,
+  sleep,
+  wanLogLabel,
+  type ImageTask,
+  type PoseConfig,
+} from "../utils/batch-folder-utils.js";
 
-// Fixed seeds for batch processing (use first N by persisted fixedSeedCount)
-const FIXED_SEEDS = [625130800946143, 625130800946142, 625130800946144];
+export type { ImageTask, PoseConfig };
+
+const COMFY_INPUT_DIR = "/workspace/runpod-slim/ComfyUI/input";
+const COMFY_OUTPUT_DIR = "/workspace/runpod-slim/ComfyUI/output";
+const COMFY_OUTPUT_VIDEO_DIR = "/workspace/runpod-slim/ComfyUI/output/video";
+
+function shSingleQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+type ComfyMediaFile = {
+  filename: string;
+  subfolder?: string;
+  type?: string;
+};
+
+const VIDEO_FILENAME_RE = /\.(mp4|webm|mov|mkv|avi)$/i;
+
+function collectNodeMedia(node: unknown): ComfyMediaFile[] {
+  if (!node || typeof node !== "object") return [];
+  const record = node as Record<string, unknown>;
+  const items: ComfyMediaFile[] = [];
+  for (const key of ["videos", "gifs", "images", "animated", "files"]) {
+    const list = record[key];
+    if (!Array.isArray(list)) continue;
+    for (const item of list) {
+      if (
+        item &&
+        typeof item === "object" &&
+        typeof (item as ComfyMediaFile).filename === "string"
+      ) {
+        items.push(item as ComfyMediaFile);
+      }
+    }
+  }
+  return items;
+}
+
+function pickVideoFile(files: ComfyMediaFile[]): ComfyMediaFile | null {
+  return (
+    files.find((file) => VIDEO_FILENAME_RE.test(file.filename)) ??
+    files[0] ??
+    null
+  );
+}
+
+function findInterpolatedVideo(
+  outputs: Record<string, unknown> | undefined,
+): ComfyMediaFile | null {
+  if (!outputs) return null;
+  const preferredIds = ["7", "16:5"];
+  for (const nodeId of preferredIds) {
+    const found = pickVideoFile(collectNodeMedia(outputs[nodeId]));
+    if (found) return found;
+  }
+  for (const node of Object.values(outputs)) {
+    const found = pickVideoFile(collectNodeMedia(node));
+    if (found) return found;
+  }
+  return null;
+}
+
+function summarizeHistoryOutputs(
+  outputs: Record<string, unknown> | undefined,
+): string {
+  if (!outputs) return "(no outputs)";
+  const summary = Object.fromEntries(
+    Object.entries(outputs).map(([nodeId, node]) => {
+      const keys =
+        node && typeof node === "object" ? Object.keys(node) : [];
+      const files = collectNodeMedia(node).map((file) => file.filename);
+      return [nodeId, { keys, files }];
+    }),
+  );
+  return JSON.stringify(summary);
+}
 
 export interface BatchJob {
   id: string;
   folderPath: string;
   outputFolderPath: string;
   prefixPrompt: string;
-  /** Number of fixed seeds per image (2 or 3); persisted server-side. */
-  fixedSeedCount: 2 | 3;
-  includeRandomSeeds: boolean;
   autoStopPod: boolean;
   comfyInstanceId: string;
   status: "pending" | "running" | "paused" | "completed" | "failed" | "stopped";
@@ -34,13 +134,6 @@ export interface BatchJob {
   logs: string[];
 }
 
-export interface ImageTask {
-  poseName: string;
-  imagePath: string;
-  imageName: string;
-  outputFolder: string;
-}
-
 export interface VideoTask {
   imageTask: ImageTask;
   seed: number;
@@ -48,41 +141,15 @@ export interface VideoTask {
   index: number;
 }
 
-export interface PoseConfig {
-  [poseName: string]: {
-    prompt: string;
-    negativePrompt: string;
-  };
-}
-
 class BatchService {
   private jobs: Map<string, BatchJob> = new Map();
   private isPaused: Map<string, boolean> = new Map();
   private isStopped: Map<string, boolean> = new Map();
-  private poseConfig: PoseConfig = {};
+  private failures = new Map<string, BatchV2Failure[]>();
+  private interpolationReportPath = new Map<string, string>();
+  private minimaxConfig: PoseConfig = loadMinimaxPromptConfig();
+  private poseConfig: PoseConfig = loadPoseConfig();
   private broadcastCallback?: (jobId: string, data: any) => void;
-
-  constructor() {
-    this.loadPoseConfig();
-  }
-
-  /**
-   * Load pose configuration from pose-config.json
-   */
-  private loadPoseConfig() {
-    try {
-      const configPath = join(process.cwd(), "..", "pose-config.json");
-      const configData = readFileSync(configPath, "utf-8");
-      this.poseConfig = JSON.parse(configData);
-      console.log(
-        "✅ Loaded pose configuration:",
-        Object.keys(this.poseConfig),
-      );
-    } catch (error) {
-      console.error("❌ Failed to load pose-config.json:", error);
-      this.poseConfig = {};
-    }
-  }
 
   /**
    * Set broadcast callback for progress updates
@@ -111,40 +178,66 @@ class BatchService {
     }
   }
 
-  /**
-   * Scan folder for images
-   */
-  async scanFolder(folderPath: string): Promise<ImageTask[]> {
-    const imageTasks: ImageTask[] = [];
+  private recordFailure(jobId: string, failure: BatchV2Failure) {
+    const list = this.failures.get(jobId) ?? [];
+    list.push(failure);
+    this.failures.set(jobId, list);
+  }
+
+  private async recordInterpolationFailure(
+    jobId: string,
+    failure: BatchV2Failure,
+    cause?: unknown,
+  ): Promise<void> {
+    const interpolFailure: BatchV2Failure = {
+      ...failure,
+      stage: failure.stage || "interpolation",
+    };
+    this.recordFailure(jobId, interpolFailure);
+    console.error(
+      `❌ [interpolation] Job ${jobId} ${interpolFailure.imageName} → ${interpolFailure.targetFilename}: ${interpolFailure.error}`,
+      cause ?? interpolFailure.error,
+    );
+
+    const job = this.jobs.get(jobId);
+    if (!job) return;
 
     try {
-      // Read all subdirectories (pose folders)
-      const entries = await readdir(folderPath, { withFileTypes: true });
+      const filePath = await appendInterpolationFailureReport({
+        filePath: this.interpolationReportPath.get(jobId),
+        failure: interpolFailure,
+        inputPath: job.folderPath,
+        outputPath: job.outputFolderPath,
+      });
+      this.interpolationReportPath.set(jobId, filePath);
+      this.addLog(jobId, `Interpolation error logged: ${filePath}`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.addLog(jobId, `Failed to write interpolation error log: ${msg}`);
+      console.error(
+        `❌ [interpolation] Failed to write error log for job ${jobId}:`,
+        error,
+      );
+    }
+  }
 
-      for (const entry of entries) {
-        if (entry.isDirectory()) {
-          const poseName = entry.name;
-          const poseFolder = join(folderPath, poseName);
-
-          // Read all files in pose folder
-          const files = await readdir(poseFolder);
-
-          for (const file of files) {
-            const ext = extname(file).toLowerCase();
-            if ([".png", ".jpg", ".jpeg", ".webp"].includes(ext)) {
-              imageTasks.push({
-                poseName,
-                imagePath: join(poseFolder, file),
-                imageName: file,
-                outputFolder: "", // Will be set when processing
-              });
-            }
-          }
-        }
-      }
-
-      console.log(`✅ Scanned ${imageTasks.length} images from ${folderPath}`);
-      return imageTasks;
+  /**
+   * Scan folder for images and assign V2-style filenames / skip flags.
+   */
+  async scanFolder(
+    folderPath: string,
+    outputFolderPath?: string,
+  ): Promise<ImageTask[]> {
+    try {
+      const { preferMinimax } = await readBatchVideoSettings();
+      const images = await scanAdultVideoFolder(folderPath);
+      const planned = await planAdultVideoTasks(images, outputFolderPath);
+      return routeAdultVideoTasks(planned, {
+        preferMinimax,
+        mode: "v1",
+        minimaxConfig: this.minimaxConfig,
+        poseConfig: this.poseConfig,
+      });
     } catch (error: any) {
       console.error("❌ Failed to scan folder:", error);
       throw new Error(`Failed to scan folder: ${error.message}`);
@@ -157,39 +250,34 @@ class BatchService {
   async createBatchJob(
     folderPath: string,
     outputFolderPath: string,
-    prefixPrompt: string,
-    includeRandomSeeds: boolean = false,
+    prefixPrompt: string = "",
     autoStopPod: boolean = false,
     comfyInstanceId?: string,
   ): Promise<BatchJob> {
     const jobId = uuidv4();
     const instanceId =
       comfyInstanceId || comfyManager.getDefaultInstanceId();
+    const resolvedOutput =
+      outputFolderPath ||
+      process.env.DEFAULT_OUTPUT_FOLDER_PATH ||
+      "./output";
 
-    // Scan folder to get image count
-    const imageTasks = await this.scanFolder(folderPath);
-
-    const { fixedSeedCount } = await readBatchVideoSettings();
-    const videosPerImage =
-      fixedSeedCount + (includeRandomSeeds ? 2 : 0);
+    const imageTasks = await this.scanFolder(folderPath, resolvedOutput);
+    const pending = sortPendingByEngine(imageTasks);
+    const counts = countRoutedTasks(imageTasks);
 
     const job: BatchJob = {
       id: jobId,
       folderPath,
-      outputFolderPath:
-        outputFolderPath ||
-        process.env.DEFAULT_OUTPUT_FOLDER_PATH ||
-        "./output",
+      outputFolderPath: resolvedOutput,
       prefixPrompt,
-      fixedSeedCount,
-      includeRandomSeeds,
       autoStopPod,
       comfyInstanceId: instanceId,
       status: "pending",
       currentImageIndex: 0,
-      totalImages: imageTasks.length,
+      totalImages: pending.length,
       currentVideoIndex: 0,
-      totalVideos: imageTasks.length * videosPerImage,
+      totalVideos: pending.length,
       createdAt: new Date(),
       logs: [],
     };
@@ -197,8 +285,13 @@ class BatchService {
     this.jobs.set(jobId, job);
     this.isPaused.set(jobId, false);
     this.isStopped.set(jobId, false);
+    this.failures.set(jobId, []);
+    this.interpolationReportPath.delete(jobId);
 
-    this.addLog(jobId, `Created batch job for ${imageTasks.length} images`);
+    this.addLog(
+      jobId,
+      `Created hybrid batch job: ${counts.pending} to generate (MiniMax ${counts.minimax} · WAN ${counts.wan}), ${counts.skipped} skipped (${counts.noPrompt} no prompt)`,
+    );
 
     return job;
   }
@@ -251,6 +344,26 @@ class BatchService {
     }
   }
 
+  private async writeFailureReportIfNeeded(jobId: string): Promise<void> {
+    const job = this.jobs.get(jobId);
+    const failures = this.failures.get(jobId) ?? [];
+    if (!job || failures.length === 0) return;
+
+    try {
+      const filePath = await writeBatchV1FailureReport({
+        failures,
+        inputPath: job.folderPath,
+        outputPath: job.outputFolderPath,
+      });
+      if (filePath) {
+        this.addLog(jobId, `Failure report written: ${filePath}`);
+      }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.addLog(jobId, `Failed to write error report: ${msg}`);
+    }
+  }
+
   /**
    * Main batch processing loop
    */
@@ -261,41 +374,82 @@ class BatchService {
     const comfyInstance = comfyManager.getInstance(job.comfyInstanceId);
 
     try {
-      // Scan folder again to get fresh list
-      const imageTasks = await this.scanFolder(job.folderPath);
+      const imageTasks = await this.scanFolder(
+        job.folderPath,
+        job.outputFolderPath,
+      );
+      const pending = sortPendingByEngine(imageTasks);
+      const counts = countRoutedTasks(imageTasks);
+      job.totalImages = pending.length;
+      job.totalVideos = pending.length;
 
-      for (let i = 0; i < imageTasks.length; i++) {
-        // Check if paused
+      if (counts.noPrompt > 0) {
+        this.addLog(
+          jobId,
+          `Skipped ${counts.noPrompt} images with no MiniMax or WAN prompt`,
+        );
+      }
+      if (counts.existing > 0) {
+        this.addLog(jobId, `Skipped ${counts.existing} existing .mp4 files`);
+      }
+      if (pending.length === 0) {
+        this.addLog(jobId, "Nothing to generate");
+      } else {
+        this.addLog(
+          jobId,
+          `Queue: MiniMax ${counts.minimax} first, then WAN ${counts.wan}`,
+        );
+      }
+
+      let lastMinimaxIndex = -1;
+      for (let i = 0; i < pending.length; i++) {
+        if ((pending[i].engine ?? "minimax") === "minimax") {
+          lastMinimaxIndex = i;
+        }
+      }
+
+      for (let i = 0; i < pending.length; i++) {
         while (this.isPaused.get(jobId)) {
-          await this.sleep(1000);
+          await sleep(1000);
         }
 
-        // Check if stopped
         if (this.isStopped.get(jobId)) {
           job.status = "stopped";
           this.addLog(jobId, "Batch processing stopped by user");
           return;
         }
 
-        const imageTask = imageTasks[i];
+        const imageTask = pending[i];
         job.currentImageIndex = i + 1;
+        job.currentVideoIndex = i + 1;
 
         this.addLog(
           jobId,
-          `Processing image ${i + 1}/${imageTasks.length}: ${
+          `Processing image ${i + 1}/${pending.length}: ${
             imageTask.imageName
-          }`,
+          } → ${imageTask.targetFilename}`,
         );
 
-        await this.processImageTask(jobId, imageTask, comfyInstance);
+        await this.processImageTask(jobId, imageTask, comfyInstance, i);
+
+        if (i === lastMinimaxIndex && !this.isStopped.get(jobId)) {
+          await this.clearComfyInputAndOutputVideo(
+            jobId,
+            job.comfyInstanceId,
+          );
+        }
       }
 
-      // All done
+      if (this.isStopped.get(jobId)) {
+        job.status = "stopped";
+        this.addLog(jobId, "Batch processing stopped by user");
+        return;
+      }
+
       job.status = "completed";
       job.completedAt = new Date();
       this.addLog(jobId, "Batch processing completed successfully");
 
-      // Auto-stop RunPod if enabled (and no other jobs using it)
       if (job.autoStopPod) {
         const comfyUrl = comfyInstance.getApiUrl();
         const podId = runPodService.extractPodIdFromUrl(comfyUrl);
@@ -329,29 +483,75 @@ class BatchService {
       job.error = error.message;
       this.addLog(jobId, `Error: ${error.message}`);
       throw error;
+    } finally {
+      await this.writeFailureReportIfNeeded(jobId);
     }
   }
 
   /**
-   * Process single image: fixedSeedCount fixed seeds + optional 2 random seeds.
+   * Process one image → one Comfy video. Skip if matching .mp4 already exists.
    */
   private async processImageTask(
     jobId: string,
     imageTask: ImageTask,
     comfyInstance: ComfyService,
+    pendingIndex: number,
   ): Promise<void> {
     const job = this.jobs.get(jobId);
     if (!job) return;
 
-    try {
-      // Map pose name to output folder name (some poses share the same folder)
-      const outputFolderName = this.mapPoseToFolderName(imageTask.poseName);
+    const naming = parsePoseOutputNaming(imageTask.poseName);
+    const outputFolderName = imageTask.outputFolder || naming.folder;
+    const sequenceNumber =
+      imageTask.sequenceNumber ?? naming.variant * 10000 + 1;
+    const targetFilename =
+      imageTask.targetFilename ||
+      generateVideoFilename(outputFolderName, sequenceNumber);
+    const poseOutputFolder = join(job.outputFolderPath, outputFolderName);
 
-      // Create output folder for this pose
-      const poseOutputFolder = join(job.outputFolderPath, outputFolderName);
+    try {
+      const existing = await listExistingVideoNumbers(
+        poseOutputFolder,
+        outputFolderName,
+      );
+      if (existing.has(sequenceNumber)) {
+        this.addLog(jobId, `Skip existing ${targetFilename}`);
+        return;
+      }
+
+      const engine = imageTask.engine ?? "minimax";
       await mkdir(poseOutputFolder, { recursive: true });
 
-      // Upload image to ComfyUI
+      if (engine === "wan") {
+        await this.processWanImageTask(
+          jobId,
+          imageTask,
+          poseOutputFolder,
+          targetFilename,
+          pendingIndex,
+        );
+        return;
+      }
+
+      const resolved = getMinimaxPosePrompt(
+        imageTask.poseName,
+        this.minimaxConfig,
+      );
+      if (!resolved) {
+        const error = `No minimax prompt for ${imageTask.poseName}`;
+        this.addLog(jobId, error);
+        this.recordFailure(jobId, {
+          poseName: imageTask.poseName,
+          imageName: imageTask.imageName,
+          targetFilename,
+          error,
+        });
+        return;
+      }
+      if (resolved.key !== imageTask.poseName) {
+        this.addLog(jobId, `${imageTask.poseName} → ${resolved.key}`);
+      }
+
       this.addLog(jobId, `Uploading image: ${imageTask.imageName}`);
       const imageBuffer = await import("fs/promises").then((fs) =>
         fs.readFile(imageTask.imagePath),
@@ -363,152 +563,165 @@ class BatchService {
       const uploadedImageName = uploadResult.name;
 
       this.addLog(jobId, `Image uploaded: ${uploadedImageName}`);
+      this.addLog(jobId, `Generating MiniMax H3 ${targetFilename}`);
 
-      // Get pose-specific prompt
-      const posePrompt = this.poseConfig[imageTask.poseName]?.prompt || "";
-      const negativePrompt =
-        this.poseConfig[imageTask.poseName]?.negativePrompt || "";
-      const fullPrompt = `${job.prefixPrompt}, ${posePrompt}`.trim();
+      const workflow = createMinimaxH3Workflow(
+        uploadedImageName,
+        resolved.prompt,
+      );
 
-      // Count existing videos in output folder to determine starting number
-      const existingFiles = await import("fs/promises")
-        .then((fs) => fs.readdir(poseOutputFolder))
-        .catch(() => []);
-      const existingVideoCount = existingFiles.filter((f) =>
-        f.endsWith(".mkv"),
-      ).length;
+      const result = await this.executeWorkflowWithRetries(
+        jobId,
+        comfyInstance,
+        workflow,
+      );
 
-      const fixedCount = job.fixedSeedCount;
-      const videosToGenerate =
-        fixedCount + (job.includeRandomSeeds ? 2 : 0);
-      for (let i = 0; i < videosToGenerate; i++) {
-        // Check pause/stop
-        while (this.isPaused.get(jobId)) {
-          await this.sleep(1000);
-        }
-        if (this.isStopped.get(jobId)) {
-          return;
-        }
+      const videoFile =
+        result.outputs["2568"]?.videos?.[0] ||
+        result.outputs["2568"]?.gifs?.[0];
+      if (!videoFile) {
+        throw new Error("Workflow output missing node 2568 video");
+      }
+      const mp4OutputPath = join(poseOutputFolder, targetFilename);
 
-        job.currentVideoIndex = i + 1;
-
-        const seed =
-          i < fixedCount ? FIXED_SEEDS[i] : this.generateRandomSeed();
-        const seedType = i < fixedCount ? "fixed" : "random";
-
+      this.addLog(jobId, `Interpolating ${videoFile.filename}...`);
+      try {
+        await this.interpolateMinimaxVideo(
+          jobId,
+          comfyInstance,
+          job.comfyInstanceId,
+          videoFile,
+          mp4OutputPath,
+        );
+        this.addLog(jobId, `Replaced with interpolated MP4: ${targetFilename}`);
+      } catch (interpError: any) {
+        const interpMsg = interpError.message || String(interpError);
         this.addLog(
           jobId,
-          `Generating video ${
-            i + 1
-          }/${videosToGenerate} with ${seedType} seed: ${seed}`,
+          `⚠️ Interpolation failed (${interpMsg}), saving raw MiniMax`,
         );
-
-        // Create workflow
-        const workflow = createWanWorkflow(
-          fullPrompt,
-          negativePrompt,
-          uploadedImageName,
-          uploadedImageName,
-          seed,
-        );
-
-        // Execute workflow with retry logic
-        let result;
-        let workflowRetries = 0;
-        const maxWorkflowRetries = 3;
-
-        while (workflowRetries < maxWorkflowRetries) {
-          try {
-            result = await comfyInstance.executeWorkflow(workflow);
-            this.addLog(jobId, `Workflow executed: ${result.prompt_id}`);
-            break; // Success, exit retry loop
-          } catch (error: any) {
-            workflowRetries++;
-            const errorMessage = error.message || String(error);
-            const isRetryable =
-              errorMessage.includes("502") ||
-              errorMessage.includes("503") ||
-              errorMessage.includes("504") ||
-              errorMessage.includes("timeout") ||
-              errorMessage.includes("ECONNRESET");
-
-            if (isRetryable && workflowRetries < maxWorkflowRetries) {
-              const waitTime = Math.min(
-                2000 * Math.pow(2, workflowRetries - 1),
-                10000,
-              ); // 2s, 4s, 8s
-              this.addLog(
-                jobId,
-                `⚠️ Workflow execution failed (${errorMessage}), retrying in ${
-                  waitTime / 1000
-                }s (${workflowRetries}/${maxWorkflowRetries})...`,
-              );
-              await this.sleep(waitTime);
-            } else {
-              this.addLog(
-                jobId,
-                `❌ Workflow execution failed after ${maxWorkflowRetries} attempts: ${errorMessage}`,
-              );
-              throw error; // Re-throw to be caught by outer try-catch
-            }
-          }
-        }
-
-        if (!result) {
-          throw new Error("Workflow execution failed after retries");
-        }
-
-        // Download videos
-        const videoSequenceNumber = existingVideoCount + i + 1;
-        const videoFilename = this.generateVideoFilename(
-          outputFolderName,
-          videoSequenceNumber,
-        );
-
-        // Download MKV only (node 828)
-        if (result.outputs["828"]?.gifs?.[0]) {
-          const mkvFile = result.outputs["828"].gifs[0];
-          const mkvFilename = videoFilename.replace(".mp4", ".mkv");
-          const mkvOutputPath = join(poseOutputFolder, mkvFilename);
-          await comfyInstance.downloadAndSaveVideo(
-            mkvFile.filename,
-            mkvOutputPath,
-            mkvFile.subfolder,
-            mkvFile.type,
-          );
-          this.addLog(jobId, `Saved MKV: ${mkvFilename}`);
-        }
-
-        // Broadcast progress
-        this.broadcast(jobId, {
-          type: "batch_progress",
+        await this.recordInterpolationFailure(
           jobId,
-          currentImage: imageTask.imageName,
-          currentImageIndex: job.currentImageIndex,
-          totalImages: job.totalImages,
-          currentVideoIndex: i + 1,
-          totalVideos: videosToGenerate,
-          overallProgress: Math.round(
-            (((job.currentImageIndex - 1) * videosToGenerate + (i + 1)) /
-              job.totalVideos) *
-              100,
-          ),
-          status: job.status,
-        });
+          {
+            poseName: imageTask.poseName,
+            imageName: imageTask.imageName,
+            targetFilename,
+            error: `Interpolation failed, saved raw MiniMax: ${interpMsg}`,
+          },
+          interpError,
+        );
+        try {
+          await comfyInstance.downloadAndSaveVideo(
+            videoFile.filename,
+            mp4OutputPath,
+            videoFile.subfolder,
+            videoFile.type,
+          );
+        } catch (rawError: any) {
+          const rawMsg = rawError.message || String(rawError);
+          throw new Error(
+            `Interpolation failed (${interpMsg}); also failed to save raw MiniMax: ${rawMsg}`,
+          );
+        }
       }
 
-      this.addLog(
+      this.broadcast(jobId, {
+        type: "batch_progress",
         jobId,
-        `Completed processing ${imageTask.imageName} (${videosToGenerate} videos generated)`,
-      );
+        currentImage: imageTask.imageName,
+        currentImageIndex: job.currentImageIndex,
+        totalImages: job.totalImages,
+        currentVideoIndex: pendingIndex + 1,
+        totalVideos: job.totalVideos,
+        overallProgress: Math.round(
+          ((pendingIndex + 1) / job.totalVideos) * 100,
+        ),
+        status: job.status,
+      });
+
+      this.addLog(jobId, `Completed processing ${imageTask.imageName}`);
     } catch (error: any) {
-      this.addLog(
-        jobId,
-        `Error processing ${imageTask.imageName}: ${error.message}`,
-      );
-      // Continue to next image instead of stopping entire batch
+      const msg = error.message || String(error);
+      this.addLog(jobId, `Error processing ${imageTask.imageName}: ${msg}`);
+      this.recordFailure(jobId, {
+        poseName: imageTask.poseName,
+        imageName: imageTask.imageName,
+        targetFilename,
+        error: msg,
+      });
       console.error(`Error processing image ${imageTask.imageName}:`, error);
     }
+  }
+
+  private async processWanImageTask(
+    jobId: string,
+    imageTask: ImageTask,
+    poseOutputFolder: string,
+    targetFilename: string,
+    pendingIndex: number,
+  ): Promise<void> {
+    const job = this.jobs.get(jobId);
+    if (!job) return;
+
+    const configKey = resolvePoseConfigKey(imageTask.poseName, this.poseConfig);
+    if (!configKey) {
+      const error = `No pose-config for ${imageTask.poseName}`;
+      this.addLog(jobId, error);
+      this.recordFailure(jobId, {
+        poseName: imageTask.poseName,
+        imageName: imageTask.imageName,
+        targetFilename,
+        error,
+      });
+      return;
+    }
+    if (configKey !== imageTask.poseName) {
+      this.addLog(jobId, `${imageTask.poseName} → ${configKey}`);
+    }
+
+    this.addLog(jobId, `Reading image: ${imageTask.imageName}`);
+    const posePrompt = this.poseConfig[configKey].prompt || "";
+    const negativePrompt = this.poseConfig[configKey].negativePrompt || "";
+    const prefix = (job.prefixPrompt || "").trim();
+    const fullPrompt = prefix ? `${prefix}, ${posePrompt}` : posePrompt;
+    const taskVersion = resolveWanVersionFromPose(
+      "json",
+      configKey,
+      this.poseConfig,
+    );
+
+    this.addLog(jobId, `${wanLogLabel("json", taskVersion)} ${targetFilename}`);
+
+    const outputPath = join(poseOutputFolder, targetFilename);
+    await generateWanI2VToFile({
+      version: taskVersion,
+      prompt: fullPrompt,
+      imagePath: imageTask.imagePath,
+      outputPath,
+      negativePrompt,
+      onLog: (message) => this.addLog(jobId, message),
+      onPoll: (status, attempt) => {
+        if (attempt === 1 || attempt % 6 === 0) {
+          this.addLog(jobId, `WAN task status: ${status}`);
+        }
+      },
+    });
+    this.addLog(jobId, `Saved MP4: ${targetFilename}`);
+
+    this.broadcast(jobId, {
+      type: "batch_progress",
+      jobId,
+      currentImage: imageTask.imageName,
+      currentImageIndex: job.currentImageIndex,
+      totalImages: job.totalImages,
+      currentVideoIndex: pendingIndex + 1,
+      totalVideos: job.totalVideos,
+      overallProgress: Math.round(
+        ((pendingIndex + 1) / job.totalVideos) * 100,
+      ),
+      status: job.status,
+    });
+    this.addLog(jobId, `Completed processing ${imageTask.imageName}`);
   }
 
   /**
@@ -547,6 +760,221 @@ class BatchService {
     this.addLog(jobId, "Batch processing resumed");
   }
 
+  private async executeWorkflowWithRetries(
+    jobId: string,
+    comfyInstance: ComfyService,
+    workflow: ComfyWorkflow,
+  ): Promise<{ prompt_id: string; outputs: any }> {
+    let result: { prompt_id: string; outputs: any } | undefined;
+    let workflowRetries = 0;
+    const maxWorkflowRetries = 3;
+
+    while (workflowRetries < maxWorkflowRetries) {
+      try {
+        result = await comfyInstance.executeWorkflow(workflow);
+        this.addLog(jobId, `Workflow executed: ${result.prompt_id}`);
+        break;
+      } catch (error: any) {
+        workflowRetries++;
+        const errorMessage = error.message || String(error);
+        const isRetryable =
+          errorMessage.includes("502") ||
+          errorMessage.includes("503") ||
+          errorMessage.includes("504") ||
+          errorMessage.includes("timeout") ||
+          errorMessage.includes("ECONNRESET");
+
+        if (isRetryable && workflowRetries < maxWorkflowRetries) {
+          const waitTime = Math.min(
+            2000 * Math.pow(2, workflowRetries - 1),
+            10000,
+          );
+          this.addLog(
+            jobId,
+            `⚠️ Workflow execution failed (${errorMessage}), retrying in ${
+              waitTime / 1000
+            }s (${workflowRetries}/${maxWorkflowRetries})...`,
+          );
+          await sleep(waitTime);
+        } else {
+          this.addLog(
+            jobId,
+            `❌ Workflow execution failed after ${maxWorkflowRetries} attempts: ${errorMessage}`,
+          );
+          throw error;
+        }
+      }
+    }
+
+    if (!result) {
+      throw new Error("Workflow execution failed after retries");
+    }
+    return result;
+  }
+
+  private remoteComfyPath(
+    root: string,
+    subfolder: string | undefined,
+    filename: string,
+  ): string {
+    const parts = [root];
+    if (subfolder) {
+      parts.push(...subfolder.split(/[/\\]+/).filter(Boolean));
+    }
+    parts.push(filename);
+    return parts.join("/");
+  }
+
+  private async stageMinimaxVideoForInterpolate(
+    jobId: string,
+    comfyInstance: ComfyService,
+    instanceId: string,
+    videoFile: ComfyMediaFile,
+  ): Promise<string> {
+    const filename = videoFile.filename;
+    if (sshTunnelService.isTunnelInstance(instanceId)) {
+      const typeFolder = videoFile.type || "output";
+      const srcRoot =
+        typeFolder === "input"
+          ? COMFY_INPUT_DIR
+          : typeFolder === "temp"
+            ? "/workspace/runpod-slim/ComfyUI/temp"
+            : COMFY_OUTPUT_DIR;
+      const src = this.remoteComfyPath(srcRoot, videoFile.subfolder, filename);
+      const dest = `${COMFY_INPUT_DIR}/${filename}`;
+      await sshTunnelService.execRemote(
+        instanceId,
+        `mkdir -p ${shSingleQuote(COMFY_INPUT_DIR)} && cp ${shSingleQuote(src)} ${shSingleQuote(dest)}`,
+      );
+      this.addLog(jobId, `Copied MiniMax output to Comfy input: ${filename}`);
+      return filename;
+    }
+
+    const tmpPath = join(tmpdir(), `minimax-raw-${uuidv4()}.mp4`);
+    try {
+      await comfyInstance.downloadAndSaveVideo(
+        filename,
+        tmpPath,
+        videoFile.subfolder,
+        videoFile.type,
+      );
+      const buffer = await readFile(tmpPath);
+      const uploaded = await comfyInstance.uploadImage(buffer, filename);
+      return uploaded.name || filename;
+    } finally {
+      await unlink(tmpPath).catch(() => undefined);
+    }
+  }
+
+  private async interpolateMinimaxVideo(
+    jobId: string,
+    comfyInstance: ComfyService,
+    instanceId: string,
+    videoFile: ComfyMediaFile,
+    outputPath: string,
+  ): Promise<void> {
+    const inputFilename = await this.stageMinimaxVideoForInterpolate(
+      jobId,
+      comfyInstance,
+      instanceId,
+      videoFile,
+    );
+    const workflow = createFrameInterpolateWorkflow(inputFilename);
+    const result = await this.executeWorkflowWithRetries(
+      jobId,
+      comfyInstance,
+      workflow,
+    );
+    let interpFile = findInterpolatedVideo(result.outputs);
+    if (!interpFile) {
+      const snapshot = summarizeHistoryOutputs(result.outputs);
+      this.addLog(jobId, `Interpolation history had no video: ${snapshot}`);
+      if (sshTunnelService.isTunnelInstance(instanceId)) {
+        try {
+          interpFile = await this.findNewestRemoteInterpolVideo(instanceId);
+          if (interpFile) {
+            this.addLog(
+              jobId,
+              `Using newest remote interpol file: ${interpFile.subfolder || ""}/${interpFile.filename}`,
+            );
+          }
+        } catch (remoteError: any) {
+          this.addLog(
+            jobId,
+            `Failed to look up remote interpol file: ${remoteError.message || String(remoteError)}`,
+          );
+          console.error(
+            `❌ [interpolation] Job ${jobId} remote interpol lookup failed:`,
+            remoteError,
+          );
+        }
+      }
+    }
+    if (!interpFile) {
+      throw new Error(
+        `Interpolation workflow output missing video (history: ${summarizeHistoryOutputs(result.outputs)})`,
+      );
+    }
+    await comfyInstance.downloadAndSaveVideo(
+      interpFile.filename,
+      outputPath,
+      interpFile.subfolder,
+      interpFile.type,
+    );
+  }
+
+  private async findNewestRemoteInterpolVideo(
+    instanceId: string,
+  ): Promise<ComfyMediaFile | null> {
+    const command = [
+      `find ${shSingleQuote(COMFY_OUTPUT_VIDEO_DIR)} -type f`,
+      `\\( -iname 'ComfyUI*.mp4' -o -iname 'ComfyUI*.webm' -o -iname 'ComfyUI*.mov' \\)`,
+      `-printf '%T@ %p\\n' | sort -n | tail -1 | cut -d' ' -f2-`,
+    ].join(" ");
+    const { stdout } = await sshTunnelService.execRemote(instanceId, command);
+    const remotePath = stdout.trim();
+    if (!remotePath) return null;
+
+    const prefix = `${COMFY_OUTPUT_DIR}/`;
+    const relative = remotePath.startsWith(prefix)
+      ? remotePath.slice(prefix.length)
+      : remotePath.replace(/^.*\/output\//, "");
+    const parts = relative.split("/").filter(Boolean);
+    const filename = parts.pop();
+    if (!filename) return null;
+    return {
+      filename,
+      subfolder: parts.join("/"),
+      type: "output",
+    };
+  }
+
+  private async clearComfyInputAndOutputVideo(
+    jobId: string,
+    instanceId: string,
+  ): Promise<void> {
+    if (!sshTunnelService.isTunnelInstance(instanceId)) {
+      this.addLog(jobId, "SSH cleanup skipped (not an SSH-tunnel instance)");
+      return;
+    }
+    try {
+      await sshTunnelService.execRemote(
+        instanceId,
+        `mkdir -p ${shSingleQuote(COMFY_OUTPUT_VIDEO_DIR)} ${shSingleQuote(COMFY_INPUT_DIR)} && find ${shSingleQuote(COMFY_OUTPUT_VIDEO_DIR)} ${shSingleQuote(COMFY_INPUT_DIR)} -mindepth 1 -maxdepth 1 -exec rm -rf {} +`,
+      );
+      this.addLog(jobId, "Cleared Comfy input and output/video");
+    } catch (error: any) {
+      this.addLog(
+        jobId,
+        `⚠️ Failed to clear Comfy folders: ${error.message || String(error)}`,
+      );
+      console.error(
+        `❌ [interpolation] Job ${jobId} failed to clear Comfy input/output/video:`,
+        error,
+      );
+    }
+  }
+
   /**
    * Stop batch
    */
@@ -576,43 +1004,6 @@ class BatchService {
     return Array.from(this.jobs.values());
   }
 
-  /**
-   * Generate random seed
-   */
-  private generateRandomSeed(): number {
-    return Math.floor(Math.random() * 999999999999999);
-  }
-
-  /**
-   * Map pose name to output folder name
-   * Some pose variations should be saved to the same folder
-   */
-  private mapPoseToFolderName(poseName: string): string {
-    const poseMapping: Record<string, string> = {
-      SingleFootjob: "Footjob",
-      DoubleFootjob: "Footjob",
-      PaizuriNoTongue: "Paizuri",
-    };
-
-    return poseMapping[poseName] || poseName;
-  }
-
-  /**
-   * Generate video filename
-   */
-  private generateVideoFilename(
-    poseName: string,
-    sequentialNumber: number,
-  ): string {
-    return `${poseName}_${sequentialNumber.toString().padStart(5, "0")}.mp4`;
-  }
-
-  /**
-   * Sleep utility
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
 }
 
 export const batchService = new BatchService();

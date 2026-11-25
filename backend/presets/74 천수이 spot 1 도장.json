@@ -14,7 +14,7 @@
   "loraSlots": [
     {
       "enabled": true,
-      "loraName": "judogirl.safetensors",
+      "loraName": "psmjs_heroine.safetensors",
       "strengthModel": 1,
       "strengthClip": 1
     },

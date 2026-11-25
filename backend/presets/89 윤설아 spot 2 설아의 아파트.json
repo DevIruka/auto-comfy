@@ -2,15 +2,13 @@
   "fixedPrefix": "(artist:tianliang duohe fangdongye:0.9), artist:ciloranko, artist:noyu, noyu23386566,ningen mame, (artist:sho:0.8264462809917354), (sho lwlw:0.9090909090909091),(artist:kedama_milk:0.5),(bee_\\(deadflow\\):0.7),artist:dino,(artist:fkey:0.8),(artist:wlop:1),year 2023,",
   "styleTrigger": "anime screencap, masterpiece, best quality, YukinoDate,",
   "character": "1girl, solo, long hair, black hair, blue eyes, hair between eyes, ahoge, hair tie, small breast, ",
-  "outfit": "topless, no bras, nipple visible, maebari, white maebari, small maebari,",
+  "outfit": "Virgin killer sweater, [or sweater dress, ribbed sweater, aran sweater, sideboob, sleeveless turtleneck, areola slip, sweater dress, ass, butt crack,",
   "backgroundPositive": "modern apartment interior, high-rise view, night city view through window, minimalist design, clean interior, cozy lighting, warm ambient light, elegant furniture, sophisticated atmosphere, private space, intimate setting,",
   "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
   "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
   "backgroundNegative": "red pupils,\n\nblurry, low quality, watermark,  crowds, bright daylight, cheap furniture, small room, cramped space, dirty interior,",
   "prefixPrompt": "A beautiful anime girl with black long hair, blue eyes, ",
-  "compositionPose": "looking at viewer, facing forward, cowboy shot, sitting, sitting on sofa, closed mouth, ",
-  "anchorAspect": "portrait",
-  "comfyInstanceId": "comfy6",
+  "comfyInstanceId": "comfy1",
   "loraSlots": [
     {
       "enabled": true,
@@ -35,8 +33,26 @@
       "loraName": "",
       "strengthModel": 1,
       "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
     }
   ],
   "name": "89 윤설아 spot 2 설아의 아파트",
-  "updatedAt": "2026-04-17T02:59:30.033Z"
+  "updatedAt": "2026-09-22T04:52:24.595Z"
 }

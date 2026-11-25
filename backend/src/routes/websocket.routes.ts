@@ -2,6 +2,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { Server } from "http";
 import { comfyService } from "../services/comfy.service.js";
 import { batchService } from "../services/batch.service.js";
+import { batchV2Service } from "../services/batch-v2.service.js";
 import { emotionBatchService } from "../services/emotion-batch.service.js";
 import { imageBatchService } from "../services/image-batch.service.js";
 import { bannerBatchService } from "../services/banner-batch.service.js";
@@ -16,6 +17,14 @@ export function setupWebSocket(server: Server) {
   // Setup batch service broadcast callback (pose batch)
   batchService.setBroadcastCallback((jobId: string, data: any) => {
     // Broadcast to all connected clients
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(data));
+      }
+    });
+  });
+
+  batchV2Service.setBroadcastCallback((_jobId: string, data: unknown) => {
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(JSON.stringify(data));

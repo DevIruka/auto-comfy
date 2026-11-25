@@ -18,6 +18,23 @@ export function buildAutomationScanResult({
     const lower = path.basename(filePath).toLowerCase();
     return AUTOMATION_EMOTIONS.find((emotion) => lower.includes(emotion.toLowerCase())) || null;
   };
+  const isUncensoredName = (filePath) =>
+    /uncensored/i.test(path.basename(String(filePath || "")));
+  // Store plain nude as `imagePath` and uncensored nude as `uncensoredImagePath`
+  // in the same slot so both variants are planned (uncensored routes to Uncensored/).
+  const assignSlotImage = (slot, emotion, clothing, imagePath) => {
+    if (!slot[emotion]) slot[emotion] = {};
+    if (clothing === "Naked" && isUncensoredName(imagePath)) {
+      if (!slot[emotion].uncensoredImagePath) {
+        slot[emotion].uncensoredImagePath = imagePath;
+        return true;
+      }
+    } else if (!slot[emotion].imagePath) {
+      slot[emotion].imagePath = imagePath;
+      return true;
+    }
+    return false;
+  };
 
   const emotionFoldersAtRoot = listEmotionFoldersUnder(root);
   if (emotionFoldersAtRoot.length > 0) {
@@ -33,8 +50,7 @@ export function buildAutomationScanResult({
 
         if (!result.poses[pose]) result.poses[pose] = { Clothed: {}, Naked: {} };
         const clothing = isNakedByFilename(imagePath) ? "Naked" : "Clothed";
-        if (!result.poses[pose][clothing][emotion]) {
-          result.poses[pose][clothing][emotion] = { imagePath };
+        if (assignSlotImage(result.poses[pose][clothing], emotion, clothing, imagePath)) {
           foundAny = true;
         }
       }
@@ -62,8 +78,7 @@ export function buildAutomationScanResult({
 
       if (!result.poses[pose]) result.poses[pose] = { Clothed: {}, Naked: {} };
       const clothing = isNakedByFilename(imagePath) ? "Naked" : "Clothed";
-      if (!result.poses[pose][clothing][emotion]) {
-        result.poses[pose][clothing][emotion] = { imagePath };
+      if (assignSlotImage(result.poses[pose][clothing], emotion, clothing, imagePath)) {
         foundAny = true;
       }
     }
@@ -109,17 +124,28 @@ export function buildAutomationScanResult({
 
           let clothedPath = null;
           let nakedPath = null;
+          let nakedUncensoredPath = null;
           for (const imagePath of imagePaths) {
-            if (isNakedByFilename(imagePath)) nakedPath = nakedPath || imagePath;
-            else clothedPath = clothedPath || imagePath;
+            if (isNakedByFilename(imagePath)) {
+              if (isUncensoredName(imagePath)) {
+                nakedUncensoredPath = nakedUncensoredPath || imagePath;
+              } else {
+                nakedPath = nakedPath || imagePath;
+              }
+            } else clothedPath = clothedPath || imagePath;
           }
 
           if (clothedPath) {
             result.poses[pose].Clothed[emotion] = { imagePath: clothedPath };
             hasAny = true;
           }
-          if (nakedPath) {
-            result.poses[pose].Naked[emotion] = { imagePath: nakedPath };
+          if (nakedPath || nakedUncensoredPath) {
+            result.poses[pose].Naked[emotion] = {
+              ...(nakedPath ? { imagePath: nakedPath } : {}),
+              ...(nakedUncensoredPath
+                ? { uncensoredImagePath: nakedUncensoredPath }
+                : {}),
+            };
             hasAny = true;
           }
 

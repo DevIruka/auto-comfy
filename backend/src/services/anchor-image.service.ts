@@ -27,7 +27,10 @@ export interface AnchorImageJobParams {
   /** 감정별 이미지 폴더 — 라벨 저장 시에만 파일 쓰기 */
   outputPath: string;
   compositionPose: string;
-  aspect: "portrait" | "landscape";
+  aspect: "portrait" | "landscape" | "shortform" | "custom";
+  /** custom aspect일 때 사용할 직접 입력 해상도 */
+  width?: number;
+  height?: number;
 }
 
 function randomSeed(): number {
@@ -60,8 +63,18 @@ type BroadcastCallback = (jobId: string, data: unknown) => void;
 
 const LYING_DOWN_WIDTH = 1536;
 const LYING_DOWN_HEIGHT = 1024;
-const DEFAULT_WIDTH = 1024;
-const DEFAULT_HEIGHT = 1536;
+const PORTRAIT_WIDTH = 1024;
+const PORTRAIT_HEIGHT = 1536;
+const SHORTFORM_WIDTH = 720;
+const SHORTFORM_HEIGHT = 1280;
+
+/** Clamp to [256, 2048] and round to a multiple of 8 (EmptyLatentImage constraint). */
+function normalizeCustomDimension(value: unknown, fallback: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  const clamped = Math.min(2048, Math.max(256, n));
+  return Math.round(clamped / 8) * 8;
+}
 
 function isPathInsideDir(filePath: string, dir: string): boolean {
   const resolvedFile = resolve(filePath);
@@ -229,9 +242,21 @@ class AnchorImageService {
     this.addLog(jobId, "Anchor job started: 1 random seed, batchSize from request");
 
     const comfy = comfyManager.getInstance(params.instanceId);
-    const isLandscape = params.aspect === "landscape";
-    const width = isLandscape ? LYING_DOWN_WIDTH : DEFAULT_WIDTH;
-    const height = isLandscape ? LYING_DOWN_HEIGHT : DEFAULT_HEIGHT;
+    let width: number;
+    let height: number;
+    if (params.aspect === "custom") {
+      width = normalizeCustomDimension(params.width, SHORTFORM_WIDTH);
+      height = normalizeCustomDimension(params.height, SHORTFORM_HEIGHT);
+    } else if (params.aspect === "landscape") {
+      width = LYING_DOWN_WIDTH;
+      height = LYING_DOWN_HEIGHT;
+    } else if (params.aspect === "portrait") {
+      width = PORTRAIT_WIDTH;
+      height = PORTRAIT_HEIGHT;
+    } else {
+      width = SHORTFORM_WIDTH;
+      height = SHORTFORM_HEIGHT;
+    }
 
     try {
       if (this.stopRequested.get(jobId)) {

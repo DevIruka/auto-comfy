@@ -1,0 +1,62 @@
+{
+  "fixedPrefix": "",
+  "styleTrigger": "s3mi-v2,  masterpiece, best quality, amazing quality, very aesthetic, high resolution , semi-realistic , absurdres , nose , lips, (STY-RL3:1),flat_color, ",
+  "character": "1girl, solo, dark brown hair, blue eyes, large breast, long wavy hair, ",
+  "outfit": "black dress, white shirt, long sleeves, long skirt",
+  "backgroundPositive": "photo studio waiting room, ",
+  "fixedSuffix": "depth of field,dynamic lighting,light particle, best quality, very aesthetic, highres, absurdres",
+  "fixedNegative": "censored,censor,censor bar,negative_hand, NegfeetV2, bad anatomy,blurry,(worst quality:1.8),low quality,hands bad,face bad,(normal quality:1.3),bad hands,[extra fingers],mutated hands and fingers,extra legs,extra arms,duplicate,cropped,text,jpeg,artifacts,signature,watermark,username,blurry,artist name,trademark,title,multiple view,Reference sheet,long body,multiple breasts,mutated,bad anatomy,disfigured,bad proportions,duplicate,bad feet,artist name,ugly,text font ui,missing limb,monochrome",
+  "backgroundNegative": "red pupils, ",
+  "prefixPrompt": "",
+  "compositionPose": "looking at viewer, facing forward, cowboy shot, sitting, sitting on sofa, from above, ",
+  "anchorAspect": "portrait",
+  "anchorWidth": 1024,
+  "anchorHeight": 1536,
+  "comfyInstanceId": "comfy1",
+  "loraSlots": [
+    {
+      "enabled": true,
+      "loraName": "semi realistic.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "wedding bikini.safetensors",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": true,
+      "loraName": "flat style1.safetensors",
+      "strengthModel": 0.7,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    },
+    {
+      "enabled": false,
+      "loraName": "",
+      "strengthModel": 1,
+      "strengthClip": 1
+    }
+  ],
+  "name": "120 청순 변X 모델 고아미 spot 1 스튜디오",
+  "updatedAt": "2026-10-08T08:12:00.013Z"
+}

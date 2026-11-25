@@ -14,10 +14,9 @@ const imageBatchRouter = Router();
 imageBatchRouter.get(
   "/poses",
   asyncHandler(async (_req: Request, res: Response) => {
-    const config = imageBatchService.getPoseConfig();
-    const poses = Object.entries(config).map(([name, expressionMap]) => ({
+    const poses = imageBatchService.getPoseList().map((name) => ({
       name,
-      expressions: Object.keys(expressionMap),
+      expressions: imageBatchService.getExpressions(name),
     }));
     res.json({ success: true, poses });
   }),
@@ -42,6 +41,24 @@ imageBatchRouter.post(
         .status(400)
         .json({ success: false, error: "outputPath is required" });
     }
+    const aspect = params.aspect ?? "shortform";
+    if (aspect !== "portrait" && aspect !== "shortform" && aspect !== "custom") {
+      return res.status(400).json({
+        success: false,
+        error: 'aspect must be "portrait", "shortform", or "custom"',
+      });
+    }
+    if (aspect === "custom") {
+      const isValid = (v: unknown) =>
+        typeof v === "number" && Number.isFinite(v) && v >= 256 && v <= 2048;
+      if (!isValid(params.width) || !isValid(params.height)) {
+        return res.status(400).json({
+          success: false,
+          error: "custom aspect requires width and height between 256 and 2048",
+        });
+      }
+    }
+    params.aspect = aspect;
 
     const jobId = imageBatchService.createJob(params);
 
